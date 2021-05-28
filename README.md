@@ -1,2 +1,2 @@
-# akkalab
-Akkalab is the infrastructure to simulation wafer-scale GPUs. 
+# akkalat
+Akkalat is the infrastructure to simulation wafer-scale GPUs. 
