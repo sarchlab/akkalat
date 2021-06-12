@@ -6,6 +6,7 @@ import (
 	"gitlab.com/akita/akita/v2/monitoring"
 	"gitlab.com/akita/akita/v2/sim"
 	"gitlab.com/akita/mem/v2/mem"
+	"gitlab.com/akita/mem/v2/vm/mmu"
 	"gitlab.com/akita/mem/v2/vm/tlb"
 	"gitlab.com/akita/mgpusim/v2/rdma"
 	"gitlab.com/akita/mgpusim/v2/timing/cp"
@@ -24,6 +25,7 @@ type Tile struct {
 	loc                    [3]int
 	sa                     *shaderArray
 	externalPorts          []sim.Port
+	l2TLB                  *tlb.TLB
 	L1TLBToL2TLBConnection *sim.DirectConnection
 }
 
@@ -35,7 +37,7 @@ type MeshBuilder struct {
 	name    string
 	gpuPtr  *GPU
 	cp      *cp.CommandProcessor
-	l2TLB   *tlb.TLB
+	mmu     *mmu.MMUImpl
 
 	engine            sim.Engine
 	freq              sim.Freq
@@ -58,6 +60,9 @@ type MeshBuilder struct {
 
 	rdmaEngine              *rdma.Engine
 	L1CachesLowModuleFinder *mem.InterleavedLowModuleFinder
+
+	// Try 1: use direct connection
+	// l2TLBToMMUConn *sim.DirectConnection
 }
 
 func makeMeshBuilder() MeshBuilder {
@@ -89,8 +94,8 @@ func (b MeshBuilder) withCP(cp *cp.CommandProcessor) MeshBuilder {
 	return b
 }
 
-func (b MeshBuilder) withL2TLB(tlb *tlb.TLB) MeshBuilder {
-	b.l2TLB = tlb
+func (b MeshBuilder) withMMU(mmu *mmu.MMUImpl) MeshBuilder {
+	b.mmu = mmu
 	return b
 }
 
@@ -196,7 +201,15 @@ func (b *MeshBuilder) Build(
 		WithEngine(b.engine).
 		WithFreq(b.freq)
 	m.meshConn.CreateNetwork(b.name)
-	// b.attachPeriphPortsToMesh(&m, periphPorts)
+	b.attachPeriphPortsToMesh(&m, periphPorts)
+
+	// Try 1: use direct connection
+	// b.l2TLBToMMUConn = sim.NewDirectConnection(
+	// 	b.gpuName+"L2TLB-MMU",
+	// 	b.engine,
+	// 	b.freq,
+	// )
+	// b.l2TLBToMMUConn.PlugIn(b.mmu.GetPortByName("Top"), 64)
 
 	b.buildTiles(&m)
 
@@ -222,6 +235,7 @@ func (b *MeshBuilder) attachPeriphPortsToTile0(
 
 func (b *MeshBuilder) buildTiles(m *MeshComponent) {
 	saBuilder := b.makeSABuilder()
+	l2TLBBuilder := b.makeL2TLBBuilder()
 
 	for x := 0; x < b.tileWidth; x++ {
 		for y := 0; y < b.tileHeight; y++ {
@@ -234,14 +248,14 @@ func (b *MeshBuilder) buildTiles(m *MeshComponent) {
 				loc:  [3]int{x, y, 0},
 			}
 
-			b.buildTile(&t, saBuilder)
-			b.fillL1TLBLowModules(&t)
+			b.buildTile(&t, saBuilder, l2TLBBuilder)
 			m.tiles = append(m.tiles, &t)
 		}
 	}
-	b.attachPeriphPortsToTile0(m)
+	// b.attachPeriphPortsToTile0(m)
 	for _, t := range m.tiles {
 		b.setL1CachesLowModuleFinder(t)
+		b.connectL1TLBToL2TLB(t)
 		b.populateTileComponents(t)
 		b.populateTileExternalPorts(t)
 		m.meshConn.AddTile(t.loc, t.externalPorts)
@@ -268,18 +282,34 @@ func (b *MeshBuilder) makeSABuilder() shaderArrayBuilder {
 	return saBuilder
 }
 
+func (b *MeshBuilder) makeL2TLBBuilder() tlb.Builder {
+	return tlb.MakeBuilder().
+		WithEngine(b.engine).
+		WithFreq(b.freq).
+		WithNumWays(64).
+		WithNumSets(64).
+		WithNumMSHREntry(64).
+		WithNumReqPerCycle(1024).
+		WithPageSize(1 << b.log2PageSize).
+		WithLowModule(b.mmu.GetPortByName("Top"))
+}
+
 func (b *MeshBuilder) buildTile(
 	t *Tile,
 	saBuilder shaderArrayBuilder,
+	l2TLBBuilder tlb.Builder,
 ) {
 	sa := saBuilder.Build(t.name)
 	t.sa = &sa
+
+	t.l2TLB = l2TLBBuilder.Build(fmt.Sprintf("%s.L2TLB", t.name))
 }
 
 func (b *MeshBuilder) populateTileExternalPorts(t *Tile) {
 	b.exportCUs(t)
 	b.exportATsAndROBs(t)
 	b.exportL1TLBs(t)
+	b.exportL2TLB(t)
 	b.exportCaches(t)
 }
 
@@ -333,32 +363,47 @@ func (b *MeshBuilder) exportATsAndROBs(t *Tile) {
 }
 
 func (b *MeshBuilder) exportL1TLBs(t *Tile) {
-	/* L1vTLBs(Bottom) <-> L2TLB(Top) */
+	/* L1vTLBs(Bottom) <-> L2TLB(Top) ; definied in connectL1TLBToL2TLB */
 	/* L1vTLBs(Control) <-> CP */
 	for _, tlb := range t.sa.l1vTLBs {
-		bottom := tlb.GetPortByName("Bottom")
+		// bottom := tlb.GetPortByName("Bottom")
 		ctrlPort := tlb.GetPortByName("Control")
-		t.externalPorts = append(t.externalPorts, bottom)
+		// t.externalPorts = append(t.externalPorts, bottom)
 		t.externalPorts = append(t.externalPorts, ctrlPort)
 		b.cp.TLBs = append(b.cp.TLBs, ctrlPort)
 	}
 
-	/* L1sTLB(Bottom) <-> L2TLB(Top) */
+	/* L1sTLB(Bottom) <-> L2TLB(Top) ; definied in connectL1TLBToL2TLB */
 	/* L1sTLB(Control) <-> CP */
-	l1sTLBBottom := t.sa.l1sTLB.GetPortByName("Bottom")
+	// l1sTLBBottom := t.sa.l1sTLB.GetPortByName("Bottom")
 	l1sTLBCtrlPort := t.sa.l1sTLB.GetPortByName("Control")
-	t.externalPorts = append(t.externalPorts, l1sTLBBottom)
+	// t.externalPorts = append(t.externalPorts, l1sTLBBottom)
 	t.externalPorts = append(t.externalPorts, l1sTLBCtrlPort)
 	b.cp.TLBs = append(b.cp.TLBs, l1sTLBCtrlPort)
 
-	/* L1iTLB(Bottom) <-> L2TLB(Top) */
+	/* L1iTLB(Bottom) <-> L2TLB(Top) ; definied in connectL1TLBToL2TLB */
 	/* L1iTLB(Control) <-> CP */
-	l1iTLBBottom := t.sa.l1iTLB.GetPortByName("Bottom")
+	// l1iTLBBottom := t.sa.l1iTLB.GetPortByName("Bottom")
 	l1iTLBCtrlPort := t.sa.l1iTLB.GetPortByName("Control")
-	t.externalPorts = append(t.externalPorts, l1iTLBBottom)
+	// t.externalPorts = append(t.externalPorts, l1iTLBBottom)
 	t.externalPorts = append(t.externalPorts, l1iTLBCtrlPort)
 	b.cp.TLBs = append(b.cp.TLBs, l1iTLBCtrlPort)
 
+}
+
+func (b *MeshBuilder) exportL2TLB(t *Tile) {
+	/* L2TLB(Top) <-> L1TLBs(Bottom) ; definited in connectL1TLBToL2TLB */
+	/* L2TLB(Bottom) <-> MMU(Top) */
+	/* L2TLB(Control) <-> CP */
+	l2TLBCtrlPort := t.l2TLB.GetPortByName("Control")
+	t.externalPorts = append(t.externalPorts, l2TLBCtrlPort)
+	b.cp.TLBs = append(b.cp.TLBs, l2TLBCtrlPort)
+	// Try 0: connect MMU Top as periphPorts(in Tile 0) to Mesh
+	t.externalPorts = append(t.externalPorts, t.l2TLB.GetPortByName("Bottom"))
+	// Try 1: use direct connection
+	// b.l2TLBToMMUConn.PlugIn(t.l2TLB.GetPortByName("Bottom"), 64)
+	// Try 2: export L2TLB Bottom to GPU domain as peripheral ports
+	// b.gpuPtr.Domain.AddPort(t.name+"_Translation", t.l2TLB.GetPortByName("Bottom"))
 }
 
 func (b *MeshBuilder) exportCaches(t *Tile) {
@@ -393,6 +438,7 @@ func (b *MeshBuilder) populateTileComponents(t *Tile) {
 	b.populateCUs(t.sa)
 	b.populateROBs(t.sa)
 	b.populateL1TLBs(t.sa)
+	b.populateL2TLB(t.l2TLB)
 	b.populateL1VAddressTranslators(t.sa)
 	b.populateL1Vs(t.sa)
 	b.populateScalerMemoryHierarchy(t.sa)
@@ -424,6 +470,18 @@ func (b *MeshBuilder) populateL1TLBs(sa *shaderArray) {
 		if b.monitor != nil {
 			b.monitor.RegisterComponent(tlb)
 		}
+	}
+}
+
+func (b *MeshBuilder) populateL2TLB(tlb *tlb.TLB) {
+	b.gpuPtr.L2TLBs = append(b.gpuPtr.L2TLBs, tlb)
+
+	if b.enableVisTracing {
+		tracing.CollectTrace(tlb, b.visTracer)
+	}
+
+	if b.monitor != nil {
+		b.monitor.RegisterComponent(tlb)
 	}
 }
 
@@ -469,12 +527,27 @@ func (b MeshBuilder) getNumMemoryBankPerTile() int {
 	return b.numMemoryBankPerMesh / numTile
 }
 
-func (b *MeshBuilder) fillL1TLBLowModules(t *Tile) {
+func (b *MeshBuilder) connectL1TLBToL2TLB(t *Tile) {
+	tlbConn := sim.NewDirectConnection(
+		t.name+"L1TLB-L2TLB",
+		b.engine,
+		b.freq,
+	)
+
+	tlbConn.PlugIn(t.l2TLB.GetPortByName("Top"), 64)
+
 	for _, l1vTLB := range t.sa.l1vTLBs {
-		l1vTLB.LowModule = b.l2TLB.GetPortByName("Top")
+		l1vTLB.LowModule = t.l2TLB.GetPortByName("Top")
+		tlbConn.PlugIn(l1vTLB.GetPortByName("Bottom"), 16)
 	}
-	t.sa.l1iTLB.LowModule = b.l2TLB.GetPortByName("Top")
-	t.sa.l1sTLB.LowModule = b.l2TLB.GetPortByName("Top")
+
+	l1iTLB := t.sa.l1iTLB
+	l1iTLB.LowModule = t.l2TLB.GetPortByName("Top")
+	tlbConn.PlugIn(l1iTLB.GetPortByName("Bottom"), 16)
+
+	l1sTLB := t.sa.l1sTLB
+	l1sTLB.LowModule = t.l2TLB.GetPortByName("Top")
+	tlbConn.PlugIn(l1sTLB.GetPortByName("Bottom"), 16)
 }
 
 func (b *MeshBuilder) setL1CachesLowModuleFinder(t *Tile) {

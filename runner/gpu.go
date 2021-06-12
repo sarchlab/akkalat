@@ -9,7 +9,6 @@ import (
 	"gitlab.com/akita/mem/v2/dram"
 	"gitlab.com/akita/mem/v2/mem"
 	"gitlab.com/akita/mem/v2/vm/mmu"
-	"gitlab.com/akita/mem/v2/vm/tlb"
 	"gitlab.com/akita/mgpusim/v2/pagemigrationcontroller"
 	"gitlab.com/akita/mgpusim/v2/rdma"
 	"gitlab.com/akita/mgpusim/v2/timing/cp"
@@ -57,8 +56,8 @@ type WaferScaleGPUBuilder struct {
 	tileWidth   int
 	tileHeight  int
 	periphPorts []sim.Port
-	l2TLB       *tlb.TLB
-	l2Caches    []*writeback.Cache
+	// l2TLB       *tlb.TLB
+	l2Caches []*writeback.Cache
 }
 
 // MakeWaferScaleGPUBuilder creates a WaferScaleGPUBuilder.
@@ -205,7 +204,6 @@ func (b WaferScaleGPUBuilder) WithTileHeight(h int) WaferScaleGPUBuilder {
 func (b WaferScaleGPUBuilder) Build(name string, id uint64) *GPU {
 	b.createGPU(name, id)
 	b.buildCP()
-	b.buildL2TLB()
 	b.buildDRAMControllers()
 	b.buildL2Caches()
 	b.buildL1LowModuleFinder()
@@ -224,7 +222,6 @@ func (b *WaferScaleGPUBuilder) populateExternalPorts() {
 	b.gpu.Domain.AddPort("RDMA", b.rdmaEngine.ToOutside)
 	b.gpu.Domain.AddPort("PageMigrationController",
 		b.pageMigrationController.GetPortByName("Remote"))
-	b.gpu.Domain.AddPort("Translation", b.l2TLB.GetPortByName("Bottom"))
 }
 
 func (b *WaferScaleGPUBuilder) createGPU(name string, id uint64) {
@@ -240,7 +237,7 @@ func (b *WaferScaleGPUBuilder) buildMesh(name string) {
 		withGPUName(b.gpuName).
 		withGPUPtr(b.gpu).
 		withCP(b.cp).
-		withL2TLB(b.l2TLB).
+		withMMU(b.mmu).
 		withEngine(b.engine).
 		withFreq(b.freq).
 		WithMemAddrOffset(b.memAddrOffset).
@@ -288,14 +285,6 @@ func (b *WaferScaleGPUBuilder) connectPeriphComponents() {
 	b.cp.PMC = pmcControlPort
 	b.periphConn.PlugIn(pmcControlPort, 1)
 
-	/* L2TLB(Top) <-> L1TLBs(Mesh -> Bottom) */
-	/* L2TLB(Bottom) <-> MMU ; definied in populateExternalPorts */
-	/* L2TLB(Control) <-> CP */
-	l2TLBCtrlPort := b.l2TLB.GetPortByName("Control")
-	b.periphConn.PlugIn(l2TLBCtrlPort, 1)
-	b.cp.TLBs = append(b.cp.TLBs, l2TLBCtrlPort)
-	b.periphPorts = append(b.periphPorts, b.l2TLB.GetPortByName("Top"))
-
 	/* L2Caches(Top) <-> L1Caches(Mesh -> Bottom) */
 	/* L2Caches(Bottom) <-> DRAMControllers(Top) */
 	/* L2Caches(Control) <-> CP */
@@ -306,6 +295,10 @@ func (b *WaferScaleGPUBuilder) connectPeriphComponents() {
 		b.periphConn.PlugIn(ctrlPort, 1)
 	}
 	b.connectL2AndDRAM()
+
+	/* MMU(Top ; Outside GPU Domain) <-> L2TLBs(Mesh -> Bottom) */
+	// Try 0: connect MMU Top as periphPorts(in Tile 0) to Mesh
+	b.periphPorts = append(b.periphPorts, b.mmu.GetPortByName("Top"))
 }
 
 func (b *WaferScaleGPUBuilder) buildDRAMControllers() {
@@ -464,29 +457,6 @@ func (b *WaferScaleGPUBuilder) buildPageMigrationController() {
 
 func (b *WaferScaleGPUBuilder) numCU() int {
 	return b.numCUPerShaderArray * b.tileWidth * b.tileHeight
-}
-
-func (b *WaferScaleGPUBuilder) buildL2TLB() {
-	builder := tlb.MakeBuilder().
-		WithEngine(b.engine).
-		WithFreq(b.freq).
-		WithNumWays(64).
-		WithNumSets(64).
-		WithNumMSHREntry(64).
-		WithNumReqPerCycle(1024).
-		WithPageSize(1 << b.log2PageSize).
-		WithLowModule(b.mmu.GetPortByName("Top"))
-
-	b.l2TLB = builder.Build(fmt.Sprintf("%s.L2TLB", b.gpuName))
-	b.gpu.L2TLBs = append(b.gpu.L2TLBs, b.l2TLB)
-
-	if b.enableVisTracing {
-		tracing.CollectTrace(b.l2TLB, b.visTracer)
-	}
-
-	if b.monitor != nil {
-		b.monitor.RegisterComponent(b.l2TLB)
-	}
 }
 
 func (b *WaferScaleGPUBuilder) buildL2Caches() {

@@ -198,7 +198,8 @@ func (b R9NanoPlatformBuilder) createConnection(
 			gpuDriver.GetPortByName("GPU"),
 			gpuDriver.GetPortByName("MMU"),
 			mmuComponent.GetPortByName("Migration"),
-			mmuComponent.GetPortByName("Top"),
+			// Try 0: connect MMU Top as periphPorts(in Tile 0) to Mesh
+			// mmuComponent.GetPortByName("Top"),
 		})
 	return pcieConnector, rootComplexID
 }
