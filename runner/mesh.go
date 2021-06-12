@@ -210,7 +210,7 @@ func (b *MeshBuilder) attachPeriphPortsToMesh(
 	ports []sim.Port,
 ) {
 	// TODO
-	m.meshConn.AddTile([3]int{b.tileWidth, 0, 0}, ports)
+	m.meshConn.AddTile([3]int{0, 0, 0}, ports)
 }
 
 func (b *MeshBuilder) attachPeriphPortsToTile0(
@@ -225,6 +225,9 @@ func (b *MeshBuilder) buildTiles(m *MeshComponent) {
 
 	for x := 0; x < b.tileWidth; x++ {
 		for y := 0; y < b.tileHeight; y++ {
+			if x == 0 && y == 0 {
+				continue
+			}
 			tileName := fmt.Sprintf("%s.Tile_[%02d,%02d]", b.name, x, y)
 			t := Tile{
 				name: tileName,
