@@ -5,6 +5,7 @@ import (
 
 	"gitlab.com/akita/akita/v2/monitoring"
 	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/cache/writeback"
 	"gitlab.com/akita/mem/v2/dram"
 	"gitlab.com/akita/mem/v2/mem"
 	"gitlab.com/akita/mem/v2/vm/mmu"
@@ -45,25 +46,27 @@ type WaferScaleGPUBuilder struct {
 	rdmaEngine              *rdma.Engine
 	pageMigrationController *pagemigrationcontroller.PageMigrationController
 
-	periphConn *sim.DirectConnection
-	// dmaToDramConnection *sim.DirectConnection
+	periphConn         *sim.DirectConnection
+	l2ToDramConnection *sim.DirectConnection
 
-	lowModuleFinderForL1  *mem.InterleavedLowModuleFinder
-	lowModuleFinderForL2  *mem.InterleavedLowModuleFinder
-	lowModuleFinderForPMC *mem.InterleavedLowModuleFinder
+	lowModuleFinderForL1    *mem.InterleavedLowModuleFinder
+	lowModuleFinderForL2    *mem.InterleavedLowModuleFinder
+	lowModuleFinderForPMC   *mem.InterleavedLowModuleFinder
+	l1CachesLowModuleFinder *mem.InterleavedLowModuleFinder
 
 	tileWidth   int
 	tileHeight  int
 	periphPorts []sim.Port
 	l2TLB       *tlb.TLB
+	l2Caches    []*writeback.Cache
 }
 
 // MakeWaferScaleGPUBuilder creates a WaferScaleGPUBuilder.
 func MakeWaferScaleGPUBuilder() WaferScaleGPUBuilder {
 	return WaferScaleGPUBuilder{
 		freq:                           1 * sim.GHz,
-		tileWidth:                      2,
-		tileHeight:                     2,
+		tileWidth:                      4,
+		tileHeight:                     4,
 		numCUPerShaderArray:            4,
 		numMemoryBank:                  16,
 		log2CacheLineSize:              6,
@@ -204,12 +207,13 @@ func (b WaferScaleGPUBuilder) Build(name string, id uint64) *GPU {
 	b.buildCP()
 	b.buildL2TLB()
 	b.buildDRAMControllers()
+	b.buildL2Caches()
+	b.buildL1LowModuleFinder()
 
-	b.connectDRAMAndDMA()
 	b.connectPeriphComponents()
 
 	b.buildMesh(name)
-	b.connectL2AndDRAM()
+
 	b.populateExternalPorts()
 
 	return b.gpu
@@ -250,7 +254,8 @@ func (b *WaferScaleGPUBuilder) buildMesh(name string) {
 		withNumCUPerShaderArray(b.numCUPerShaderArray).
 		withNumMemoryBank(b.numMemoryBank).
 		withLog2MemoryBankInterleavingSize(b.log2MemoryBankInterleavingSize).
-		withRDMAEngine(b.rdmaEngine)
+		withRDMAEngine(b.rdmaEngine).
+		withL1CachesLowModuleFinder(b.l1CachesLowModuleFinder)
 	b.m = meshBuilder.Build(name, b.periphPorts)
 }
 
@@ -264,58 +269,43 @@ func (b *WaferScaleGPUBuilder) connectPeriphComponents() {
 	b.periphConn.PlugIn(b.cp.ToRDMA, 4)
 	b.periphConn.PlugIn(b.cp.ToPMC, 4)
 
-	/* CP <-> CUs, TLBs, Caches, ATs, ROBs */
+	/* CP <-> Mesh(CUs, TLBs, Caches, ATs, ROBs) */
 	b.periphPorts = append(b.periphPorts, b.cp.ToCUs)
 	b.periphPorts = append(b.periphPorts, b.cp.ToTLBs)
 	b.periphPorts = append(b.periphPorts, b.cp.ToCaches)
 	b.periphPorts = append(b.periphPorts, b.cp.ToAddressTranslators)
 
+	/* RDMA(Control) <-> CP */
 	b.cp.RDMA = b.rdmaEngine.CtrlPort
 	b.periphConn.PlugIn(b.cp.RDMA, 1)
 
+	/* DMA(Control) <-> CP */
 	b.cp.DMAEngine = b.dmaEngine.ToCP
 	b.periphConn.PlugIn(b.dmaEngine.ToCP, 1)
 
+	/* PMC(Control) <-> CP */
 	pmcControlPort := b.pageMigrationController.GetPortByName("Control")
 	b.cp.PMC = pmcControlPort
 	b.periphConn.PlugIn(pmcControlPort, 1)
 
-	/* L2TLB(Bottom) <-> MMU */
+	/* L2TLB(Top) <-> L1TLBs(Mesh -> Bottom) */
+	/* L2TLB(Bottom) <-> MMU ; definied in populateExternalPorts */
 	/* L2TLB(Control) <-> CP */
 	l2TLBCtrlPort := b.l2TLB.GetPortByName("Control")
+	b.periphConn.PlugIn(l2TLBCtrlPort, 1)
 	b.cp.TLBs = append(b.cp.TLBs, l2TLBCtrlPort)
-	b.periphPorts = append(b.periphPorts, l2TLBCtrlPort)
 	b.periphPorts = append(b.periphPorts, b.l2TLB.GetPortByName("Top"))
 
-}
-
-func (b *WaferScaleGPUBuilder) connectDRAMAndDMA() {
-	lowModuleFinder := mem.NewInterleavedLowModuleFinder(
-		1 << b.log2MemoryBankInterleavingSize)
-
-	for _, dram := range b.drams {
-		b.periphPorts = append(b.periphPorts, dram.GetPortByName("Top"))
-		lowModuleFinder.LowModules = append(lowModuleFinder.LowModules,
-			dram.GetPortByName("Top"))
+	/* L2Caches(Top) <-> L1Caches(Mesh -> Bottom) */
+	/* L2Caches(Bottom) <-> DRAMControllers(Top) */
+	/* L2Caches(Control) <-> CP */
+	for _, l2 := range b.l2Caches {
+		b.periphPorts = append(b.periphPorts, l2.GetPortByName("Top"))
+		ctrlPort := l2.GetPortByName("Control")
+		b.cp.L2Caches = append(b.cp.L2Caches, ctrlPort)
+		b.periphConn.PlugIn(ctrlPort, 1)
 	}
-
-	b.dmaEngine.SetLocalDataSource(lowModuleFinder)
-	b.periphPorts = append(b.periphPorts, b.dmaEngine.ToMem)
-
-	b.pageMigrationController.MemCtrlFinder = lowModuleFinder
-	b.periphPorts = append(b.periphPorts,
-		b.pageMigrationController.GetPortByName("LocalMem"))
-
-	b.periphPorts = append(b.periphPorts, b.rdmaEngine.ToL1)
-	b.periphPorts = append(b.periphPorts, b.rdmaEngine.ToL2)
-}
-
-func (b *WaferScaleGPUBuilder) connectL2AndDRAM() {
-	for i, l2 := range b.m.l2Caches {
-		l2.SetLowModuleFinder(&mem.SingleLowModuleFinder{
-			LowModule: b.drams[i].GetPortByName("Top"),
-		})
-	}
+	b.connectL2AndDRAM()
 }
 
 func (b *WaferScaleGPUBuilder) buildDRAMControllers() {
@@ -497,4 +487,84 @@ func (b *WaferScaleGPUBuilder) buildL2TLB() {
 	if b.monitor != nil {
 		b.monitor.RegisterComponent(b.l2TLB)
 	}
+}
+
+func (b *WaferScaleGPUBuilder) buildL2Caches() {
+	byteSize := b.l2CacheSize / uint64(b.numMemoryBank)
+	l2Builder := writeback.MakeBuilder().
+		WithEngine(b.engine).
+		WithFreq(b.freq).
+		WithLog2BlockSize(b.log2CacheLineSize).
+		WithWayAssociativity(16).
+		WithByteSize(byteSize).
+		WithNumMSHREntry(64).
+		WithNumReqPerCycle(1)
+
+	for i := 0; i < b.numMemoryBank; i++ {
+		cacheName := fmt.Sprintf("%s.L2_%d", b.gpuName, i)
+		l2 := l2Builder.Build(cacheName)
+		b.l2Caches = append(b.l2Caches, l2)
+		b.gpu.L2Caches = append(b.gpu.L2Caches, l2)
+
+		if b.enableVisTracing {
+			tracing.CollectTrace(l2, b.visTracer)
+		}
+
+		if b.enableMemTracing {
+			tracing.CollectTrace(l2, b.memTracer)
+		}
+
+		if b.monitor != nil {
+			b.monitor.RegisterComponent(l2)
+		}
+	}
+}
+
+func (b *WaferScaleGPUBuilder) buildL1LowModuleFinder() {
+	b.l1CachesLowModuleFinder = mem.NewInterleavedLowModuleFinder(
+		1 << b.log2MemoryBankInterleavingSize)
+	b.l1CachesLowModuleFinder.ModuleForOtherAddresses = b.rdmaEngine.ToL1
+	b.l1CachesLowModuleFinder.UseAddressSpaceLimitation = true
+	b.l1CachesLowModuleFinder.LowAddress = b.memAddrOffset
+	b.l1CachesLowModuleFinder.HighAddress = b.memAddrOffset + 4*mem.GB
+
+	b.rdmaEngine.SetLocalModuleFinder(b.l1CachesLowModuleFinder)
+
+	b.periphPorts = append(b.periphPorts, b.rdmaEngine.ToL1)
+	b.periphPorts = append(b.periphPorts, b.rdmaEngine.ToL2)
+
+	for _, l2 := range b.l2Caches {
+		b.l1CachesLowModuleFinder.LowModules = append(
+			b.l1CachesLowModuleFinder.LowModules,
+			l2.GetPortByName("Top"),
+		)
+	}
+}
+
+func (b *WaferScaleGPUBuilder) connectL2AndDRAM() {
+	b.l2ToDramConnection = sim.NewDirectConnection(
+		b.gpuName+"L2-DRAM", b.engine, b.freq)
+
+	lowModuleFinder := mem.NewInterleavedLowModuleFinder(
+		1 << b.log2MemoryBankInterleavingSize)
+
+	for i, l2 := range b.l2Caches {
+		b.l2ToDramConnection.PlugIn(l2.GetPortByName("Bottom"), 64)
+		l2.SetLowModuleFinder(&mem.SingleLowModuleFinder{
+			LowModule: b.drams[i].GetPortByName("Top"),
+		})
+	}
+
+	for _, dram := range b.drams {
+		b.l2ToDramConnection.PlugIn(dram.GetPortByName("Top"), 64)
+		lowModuleFinder.LowModules = append(lowModuleFinder.LowModules,
+			dram.GetPortByName("Top"))
+	}
+
+	b.dmaEngine.SetLocalDataSource(lowModuleFinder)
+	b.l2ToDramConnection.PlugIn(b.dmaEngine.ToMem, 64)
+
+	b.pageMigrationController.MemCtrlFinder = lowModuleFinder
+	b.l2ToDramConnection.PlugIn(
+		b.pageMigrationController.GetPortByName("LocalMem"), 16)
 }

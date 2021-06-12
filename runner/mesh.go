@@ -5,7 +5,6 @@ import (
 
 	"gitlab.com/akita/akita/v2/monitoring"
 	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mem/v2/cache/writeback"
 	"gitlab.com/akita/mem/v2/mem"
 	"gitlab.com/akita/mem/v2/vm/tlb"
 	"gitlab.com/akita/mgpusim/v2/rdma"
@@ -15,23 +14,7 @@ import (
 )
 
 type MeshComponent struct {
-	// cus               []*cu.ComputeUnit
-	// l1vReorderBuffers []*rob.ReorderBuffer
-	// l1iReorderBuffers []*rob.ReorderBuffer
-	// l1sReorderBuffers []*rob.ReorderBuffer
-	// l1vCaches         []*writearound.Cache
-	// l1sCaches         []*l1v.Cache
-	// l1iCaches         []*l1v.Cache
-	// l2Caches          []*writeback.Cache
-	// l1vAddrTrans      []*addresstranslator.AddressTranslator
-	// l1sAddrTrans      []*addresstranslator.AddressTranslator
-	// l1iAddrTrans      []*addresstranslator.AddressTranslator
-	// l1vTLBs           []*tlb.TLB
-	// l1sTLBs           []*tlb.TLB
-	// l1iTLBs           []*tlb.TLB
-
 	tiles       []*Tile
-	l2Caches    []*writeback.Cache
 	periphPorts []sim.Port
 	meshConn    *mesh.Connector
 }
@@ -40,9 +23,7 @@ type Tile struct {
 	name                   string
 	loc                    [3]int
 	sa                     *shaderArray
-	localL2Caches          []*writeback.Cache
 	externalPorts          []sim.Port
-	l1ToLocalL2Conn        *sim.DirectConnection
 	L1TLBToL2TLBConnection *sim.DirectConnection
 }
 
@@ -196,6 +177,13 @@ func (b MeshBuilder) withRDMAEngine(r *rdma.Engine) MeshBuilder {
 	return b
 }
 
+func (b MeshBuilder) withL1CachesLowModuleFinder(
+	lmf *mem.InterleavedLowModuleFinder,
+) MeshBuilder {
+	b.L1CachesLowModuleFinder = lmf
+	return b
+}
+
 func (b *MeshBuilder) Build(
 	name string,
 	periphPorts []sim.Port,
@@ -232,21 +220,32 @@ func (b *MeshBuilder) attachPeriphPortsToTile0(
 	m.tiles[0].externalPorts = append(m.tiles[0].externalPorts, m.periphPorts...)
 }
 
-func (b *MeshBuilder) buildL1CachesLowModuleFinder(
-	m *MeshComponent,
-) {
-	b.L1CachesLowModuleFinder = mem.NewInterleavedLowModuleFinder(
-		1 << b.log2MemoryBankInterleavingSize)
-	b.L1CachesLowModuleFinder.ModuleForOtherAddresses = b.rdmaEngine.ToL1
-	b.L1CachesLowModuleFinder.UseAddressSpaceLimitation = true
-	b.L1CachesLowModuleFinder.LowAddress = b.memAddrOffset
-	b.L1CachesLowModuleFinder.HighAddress = b.memAddrOffset + 4*mem.GB
+func (b *MeshBuilder) buildTiles(m *MeshComponent) {
+	saBuilder := b.makeSABuilder()
 
-	b.rdmaEngine.SetLocalModuleFinder(b.L1CachesLowModuleFinder)
+	for x := 0; x < b.tileWidth; x++ {
+		for y := 0; y < b.tileHeight; y++ {
+			tileName := fmt.Sprintf("%s.Tile_[%02d,%02d]", b.name, x, y)
+			t := Tile{
+				name: tileName,
+				loc:  [3]int{x, y, 0},
+			}
+
+			b.buildTile(&t, saBuilder)
+			b.fillL1TLBLowModules(&t)
+			m.tiles = append(m.tiles, &t)
+		}
+	}
+	b.attachPeriphPortsToTile0(m)
+	for _, t := range m.tiles {
+		b.setL1CachesLowModuleFinder(t)
+		b.populateTileComponents(t)
+		b.populateTileExternalPorts(t)
+		m.meshConn.AddTile(t.loc, t.externalPorts)
+	}
 }
 
-func (b *MeshBuilder) buildTiles(m *MeshComponent) {
-	/* Make shader array builder */
+func (b *MeshBuilder) makeSABuilder() shaderArrayBuilder {
 	saBuilder := makeShaderArrayBuilder().
 		withEngine(b.engine).
 		withFreq(b.freq).
@@ -263,50 +262,15 @@ func (b *MeshBuilder) buildTiles(m *MeshComponent) {
 		saBuilder = saBuilder.withMemTracer(b.memTracer)
 	}
 
-	/* Make L2 cache builder */
-	l2Builder := writeback.MakeBuilder().
-		WithEngine(b.engine).
-		WithFreq(b.freq).
-		WithLog2BlockSize(b.log2CacheLineSize).
-		WithWayAssociativity(16).
-		WithByteSize(b.l2CacheSize / uint64(b.numMemoryBankPerMesh)).
-		WithNumMSHREntry(64).
-		WithNumReqPerCycle(1)
-	b.numMemoryBankPerTile = b.getNumMemoryBankPerTile()
-	b.buildL1CachesLowModuleFinder(m)
-
-	for x := 0; x < b.tileWidth; x++ {
-		for y := 0; y < b.tileHeight; y++ {
-			tileName := fmt.Sprintf("%s.Tile_[%02d,%02d]", b.name, x, y)
-			t := Tile{
-				name: tileName,
-				loc:  [3]int{x, y, 0},
-			}
-
-			b.buildTile(&t, saBuilder, l2Builder)
-			m.l2Caches = append(m.l2Caches, t.localL2Caches...)
-			b.fillL1CachesLowModules(&t)
-			b.fillL1TLBLowModules(&t)
-			m.tiles = append(m.tiles, &t)
-		}
-	}
-	b.attachPeriphPortsToTile0(m)
-	for _, t := range m.tiles {
-		b.setL1CachesLowModuleFinder(t)
-		b.populateTileComponents(t)
-		b.populateTileExternalPorts(t)
-		m.meshConn.AddTile(t.loc, t.externalPorts)
-	}
+	return saBuilder
 }
 
 func (b *MeshBuilder) buildTile(
 	t *Tile,
 	saBuilder shaderArrayBuilder,
-	l2Builder writeback.Builder,
 ) {
 	sa := saBuilder.Build(t.name)
 	t.sa = &sa
-	t.localL2Caches = b.buildL2Caches(l2Builder, t.name)
 }
 
 func (b *MeshBuilder) populateTileExternalPorts(t *Tile) {
@@ -418,18 +382,6 @@ func (b *MeshBuilder) exportCaches(t *Tile) {
 	t.externalPorts = append(t.externalPorts, l1iCtrlPort)
 	b.cp.L1ICaches = append(b.cp.L1ICaches, l1iCtrlPort)
 
-	/* L2 Caches(Top) <-> L1 caches(Bottom) */
-	/* L2 Caches(Bottom) <-> DRAM(Top) */
-	/* L2 Caches(Control) <-> CP */
-	for _, l2 := range t.localL2Caches {
-		top := l2.GetPortByName("Top")
-		bottom := l2.GetPortByName("Bottom")
-		ctrlPort := l2.GetPortByName("Control")
-		t.externalPorts = append(t.externalPorts, top)
-		t.externalPorts = append(t.externalPorts, bottom)
-		t.externalPorts = append(t.externalPorts, ctrlPort)
-		b.cp.L2Caches = append(b.cp.L2Caches, ctrlPort)
-	}
 }
 
 func (b *MeshBuilder) populateTileComponents(t *Tile) {
@@ -514,52 +466,12 @@ func (b MeshBuilder) getNumMemoryBankPerTile() int {
 	return b.numMemoryBankPerMesh / numTile
 }
 
-func (b *MeshBuilder) buildL2Caches(
-	l2Builder writeback.Builder,
-	prefixName string,
-) (l2Caches []*writeback.Cache) {
-	for i := 0; i < b.numMemoryBankPerTile; i++ {
-		cacheName := fmt.Sprintf("%s.L2_%d", prefixName, i)
-		// fmt.Println(cacheName)
-		l2 := l2Builder.Build(cacheName)
-		l2Caches = append(l2Caches, l2)
-		b.gpuPtr.L2Caches = append(b.gpuPtr.L2Caches, l2)
-
-		if b.enableVisTracing {
-			tracing.CollectTrace(l2, b.visTracer)
-		}
-
-		if b.enableMemTracing {
-			tracing.CollectTrace(l2, b.memTracer)
-		}
-
-		if b.monitor != nil {
-			b.monitor.RegisterComponent(l2)
-		}
-	}
-	return
-}
-
 func (b *MeshBuilder) fillL1TLBLowModules(t *Tile) {
 	for _, l1vTLB := range t.sa.l1vTLBs {
 		l1vTLB.LowModule = b.l2TLB.GetPortByName("Top")
 	}
 	t.sa.l1iTLB.LowModule = b.l2TLB.GetPortByName("Top")
 	t.sa.l1sTLB.LowModule = b.l2TLB.GetPortByName("Top")
-}
-
-func (b *MeshBuilder) fillL1CachesLowModules(t *Tile) {
-	// We can't fill the low modules during each tile build,
-	// and set the low module finder of L1 caches to this
-	// pointer of unfulfilled low modules, since the parameter
-	// of SetLowModuleFinder is not pointer. Thus we must set
-	// after all L2 caches in mesh are built.
-	for _, l2 := range t.localL2Caches {
-		b.L1CachesLowModuleFinder.LowModules = append(
-			b.L1CachesLowModuleFinder.LowModules,
-			l2.GetPortByName("Top"),
-		)
-	}
 }
 
 func (b *MeshBuilder) setL1CachesLowModuleFinder(t *Tile) {
