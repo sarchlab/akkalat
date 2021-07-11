@@ -263,13 +263,15 @@ func (b *WaferScaleGPUBuilder) connectPeriphComponents() {
 	b.periphConn = sim.NewDirectConnection(
 		b.gpuName+"PeriphConn", b.engine, b.freq)
 
-	/* CP <-> Driver, DMA, RDMA, PMC */
+	/* CP <-> Driver, RDMA, PMC */
 	b.periphConn.PlugIn(b.cp.ToDriver, 1)
-	b.periphConn.PlugIn(b.cp.ToDMA, 128)
 	b.periphConn.PlugIn(b.cp.ToRDMA, 4)
 	b.periphConn.PlugIn(b.cp.ToPMC, 4)
 
 	/* CP <-> Mesh(CUs, TLBs, Caches, ATs, ROBs) */
+	/* attention: DMA must connect to mesh, otherwise errors would occur when
+	CP try to access control ports of caches */
+	b.periphPorts = append(b.periphPorts, b.cp.ToDMA)
 	b.periphPorts = append(b.periphPorts, b.cp.ToCUs)
 	b.periphPorts = append(b.periphPorts, b.cp.ToTLBs)
 	b.periphPorts = append(b.periphPorts, b.cp.ToCaches)
@@ -279,9 +281,9 @@ func (b *WaferScaleGPUBuilder) connectPeriphComponents() {
 	b.cp.RDMA = b.rdmaEngine.CtrlPort
 	b.periphConn.PlugIn(b.cp.RDMA, 1)
 
-	/* DMA(Control) <-> CP */
+	/* DMA(Control) <-> Mesh(CP.ToDMA) */
 	b.cp.DMAEngine = b.dmaEngine.ToCP
-	b.periphConn.PlugIn(b.dmaEngine.ToCP, 1)
+	b.periphPorts = append(b.periphPorts, b.dmaEngine.ToCP)
 
 	/* PMC(Control) <-> CP */
 	pmcControlPort := b.pageMigrationController.GetPortByName("Control")
@@ -303,7 +305,7 @@ func (b *WaferScaleGPUBuilder) connectPeriphComponents() {
 		b.periphPorts = append(b.periphPorts, l2.GetPortByName("Top"))
 		ctrlPort := l2.GetPortByName("Control")
 		b.cp.L2Caches = append(b.cp.L2Caches, ctrlPort)
-		b.periphConn.PlugIn(ctrlPort, 1)
+		b.periphPorts = append(b.periphPorts, ctrlPort)
 	}
 	b.connectL2AndDRAM()
 }
