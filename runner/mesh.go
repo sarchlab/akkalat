@@ -20,11 +20,10 @@ type MeshComponent struct {
 }
 
 type Tile struct {
-	name                   string
-	loc                    [3]int
-	sa                     *shaderArray
-	externalPorts          []sim.Port
-	L1TLBToL2TLBConnection *sim.DirectConnection
+	name          string
+	loc           [3]int
+	sa            *shaderArray
+	externalPorts []sim.Port
 }
 
 type tileBuilder = shaderArrayBuilder
