@@ -1,0 +1,32 @@
+[
+  {
+    "name": "fir",
+    "path": "samples/fir/",
+    "cmd": "./fir -timing -report-all -parallel",
+    "export": "samples/fir/metrics.csv"
+  },
+  {
+    "name": "floydwarshall",
+    "path": "samples/floydwarshall/",
+    "cmd": "./floydwarshall -timing -report-all -parallel",
+    "export": "samples/floydwarshall/metrics.csv"
+  },
+  {
+    "name": "aes",
+    "path": "samples/aes/",
+    "cmd": "./aes -timing -report-all -parallel",
+    "export": "samples/aes/metrics.csv"
+  },
+  {
+    "name": "matrixmultiplication",
+    "path": "samples/matrixmultiplication/",
+    "cmd": "./matrixmultiplication -timing -report-all -parallel",
+    "export": "samples/matrixmultiplication/metrics.csv"
+  },
+  {
+    "name": "fft",
+    "path": "samples/fft/",
+    "cmd": "./fft -timing -report-all -parallel",
+    "export": "samples/fft/metrics.csv"
+  }
+]

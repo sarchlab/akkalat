@@ -1,0 +1,48 @@
+name: Build and Run Benchmarks
+
+on: [push, workflow_dispatch]
+
+jobs:
+  setup-matrix:
+    name: "Setup jobs matrix"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 2
+      - name: Setup benchmarks matrix combinations
+        id: setup-matrix-combinations
+        run: |
+          BENCHMARKS_JSON='${{ github.workspace }}/actions.json'
+          if [ ! -f "$BENCHMARKS_JSON" ]; then
+            echo No benchmark will be built and run.
+            exit 1
+          fi
+          MATRIX_PARAMS_COMBINATIONS=`cat $BENCHMARKS_JSON`
+          echo ::set-output name=matrix-combinations::{\"include\":$MATRIX_PARAMS_COMBINATIONS}
+    outputs:
+      matrix-combinations: ${{ steps.setup-matrix-combinations.outputs.matrix-combinations }}
+  
+  matrix-job:
+    name: 'Build ${{ matrix.name }}'
+    runs-on: self-hosted
+    needs: setup-matrix
+    strategy:
+      matrix: ${{ fromJson(needs.setup-matrix.outputs.matrix-combinations) }}
+    steps:
+      - name: Check out repository code
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: 2
+      - name: Go build and execute
+        run: |
+          cd ${{ matrix.path }} && \
+          go build && \
+          eval ${{ matrix.cmd }}
+      - name: Upload the exported file
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ matrix.name }}
+          path: ${{ matrix.export }}
+          if-no-files-found: error
