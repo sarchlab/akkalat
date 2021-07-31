@@ -5,30 +5,24 @@ import (
 
 	"gitlab.com/akita/akita/v2/monitoring"
 	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/dram"
 	"gitlab.com/akita/mem/v2/mem"
 	"gitlab.com/akita/mem/v2/vm/tlb"
-	"gitlab.com/akita/mgpusim/v2/rdma"
 	"gitlab.com/akita/mgpusim/v2/timing/cp"
-	"gitlab.com/akita/noc/v2/networking/mesh"
+	"gitlab.com/akita/mgpusim/v2/timing/pagemigrationcontroller"
+	meshNetwork "gitlab.com/akita/noc/v2/networking/mesh"
 	"gitlab.com/akita/util/v2/tracing"
 )
 
-type MeshComponent struct {
-	tiles       []*Tile
-	periphPorts []sim.Port
-	meshConn    *mesh.Connector
+type mesh struct {
+	tiles      []*tile
+	tilesPorts [][]sim.Port
+	// drams              []*idealmemcontroller.Comp
+	memLowModuleFinder *mem.InterleavedLowModuleFinder
+	meshConn           *meshNetwork.Connector
 }
 
-type Tile struct {
-	name          string
-	loc           [3]int
-	sa            *shaderArray
-	externalPorts []sim.Port
-}
-
-type tileBuilder = shaderArrayBuilder
-
-type MeshBuilder struct {
+type meshBuilder struct {
 	gpuID   uint64
 	gpuName string
 	name    string
@@ -36,166 +30,204 @@ type MeshBuilder struct {
 	cp      *cp.CommandProcessor
 	l2TLB   *tlb.TLB
 
-	engine            sim.Engine
-	freq              sim.Freq
-	memAddrOffset     uint64
-	l2CacheSize       uint64
-	log2CacheLineSize uint64
-	log2PageSize      uint64
-	visTracer         tracing.Tracer
-	memTracer         tracing.Tracer
-	enableMemTracing  bool
-	enableVisTracing  bool
-	monitor           *monitoring.Monitor
+	engine             sim.Engine
+	freq               sim.Freq
+	memAddrOffset      uint64
+	log2CacheLineSize  uint64
+	log2PageSize       uint64
+	dramSize           uint64
+	visTracer          tracing.Tracer
+	memTracer          tracing.Tracer
+	enableISADebugging bool
+	enableMemTracing   bool
+	enableVisTracing   bool
+	monitor            *monitoring.Monitor
 
 	tileWidth                      int
 	tileHeight                     int
-	numCUPerShaderArray            int
-	numMemoryBankPerMesh           int
-	numMemoryBankPerTile           int
+	numTile                        int
+	numMemoryBank                  int
 	log2MemoryBankInterleavingSize uint64
 
-	rdmaEngine              *rdma.Engine
-	L1CachesLowModuleFinder *mem.InterleavedLowModuleFinder
+	dmaEngine               *cp.DMAEngine
+	dramBuilder             dram.Builder
+	globalStorage           *mem.Storage
+	pageMigrationController *pagemigrationcontroller.PageMigrationController
 }
 
-func makeMeshBuilder() MeshBuilder {
-	b := MeshBuilder{
-		gpuID: 0,
-		name:  "Mesh",
-		freq:  1 * sim.GHz,
+func makeMeshBuilder() meshBuilder {
+	b := meshBuilder{
+		gpuID:      0,
+		name:       "Mesh",
+		freq:       1 * sim.GHz,
+		tileWidth:  0,
+		tileHeight: 0,
 	}
 	return b
 }
 
-func (b MeshBuilder) withGPUID(id uint64) MeshBuilder {
+func (b meshBuilder) withGPUID(id uint64) meshBuilder {
 	b.gpuID = id
 	return b
 }
 
-func (b MeshBuilder) withGPUName(str string) MeshBuilder {
+func (b meshBuilder) withGPUName(str string) meshBuilder {
 	b.gpuName = str
 	return b
 }
 
-func (b MeshBuilder) withGPUPtr(p *GPU) MeshBuilder {
+func (b meshBuilder) withGPUPtr(p *GPU) meshBuilder {
 	b.gpuPtr = p
 	return b
 }
 
-func (b MeshBuilder) withCP(cp *cp.CommandProcessor) MeshBuilder {
+func (b meshBuilder) withCP(cp *cp.CommandProcessor) meshBuilder {
 	b.cp = cp
 	return b
 }
 
-func (b MeshBuilder) withL2TLB(tlb *tlb.TLB) MeshBuilder {
+func (b meshBuilder) withL2TLB(tlb *tlb.TLB) meshBuilder {
 	b.l2TLB = tlb
 	return b
 }
 
-func (b MeshBuilder) withEngine(e sim.Engine) MeshBuilder {
+func (b meshBuilder) withEngine(e sim.Engine) meshBuilder {
 	b.engine = e
 	return b
 }
 
-func (b MeshBuilder) withFreq(f sim.Freq) MeshBuilder {
+func (b meshBuilder) withFreq(f sim.Freq) meshBuilder {
 	b.freq = f
 	return b
 }
 
-func (b MeshBuilder) WithMemAddrOffset(offset uint64) MeshBuilder {
+func (b meshBuilder) WithMemAddrOffset(offset uint64) meshBuilder {
 	b.memAddrOffset = offset
 	return b
 }
 
-func (b MeshBuilder) WithL2CacheSize(size uint64) MeshBuilder {
-	b.l2CacheSize = size
-	return b
-}
-
-func (b MeshBuilder) withLog2CachelineSize(
+func (b meshBuilder) withLog2CachelineSize(
 	log2Size uint64,
-) MeshBuilder {
+) meshBuilder {
 	b.log2CacheLineSize = log2Size
 	return b
 }
 
-func (b MeshBuilder) withLog2PageSize(
+func (b meshBuilder) withLog2PageSize(
 	log2Size uint64,
-) MeshBuilder {
+) meshBuilder {
 	b.log2PageSize = log2Size
 	return b
 }
 
-func (b MeshBuilder) withVisTracer(t tracing.Tracer) MeshBuilder {
+func (b meshBuilder) WithDRAMSize(size uint64) meshBuilder {
+	b.dramSize = size
+	return b
+}
+
+func (b meshBuilder) WithISADebugging() meshBuilder {
+	b.enableISADebugging = true
+	return b
+}
+
+func (b meshBuilder) withVisTracer(t tracing.Tracer) meshBuilder {
 	b.enableVisTracing = true
 	b.visTracer = t
 	return b
 }
 
-func (b MeshBuilder) withMemTracer(t tracing.Tracer) MeshBuilder {
+func (b meshBuilder) withMemTracer(t tracing.Tracer) meshBuilder {
 	b.enableMemTracing = true
 	b.memTracer = t
 	return b
 }
 
-func (b MeshBuilder) withMonitor(monitor *monitoring.Monitor) MeshBuilder {
+func (b meshBuilder) withMonitor(monitor *monitoring.Monitor) meshBuilder {
 	b.monitor = monitor
 	return b
 }
 
-func (b MeshBuilder) withTileWidth(w int) MeshBuilder {
+func (b meshBuilder) withTileWidth(w int) meshBuilder {
 	b.tileWidth = w
 	return b
 }
 
-func (b MeshBuilder) withTileHeight(h int) MeshBuilder {
+func (b meshBuilder) withTileHeight(h int) meshBuilder {
 	b.tileHeight = h
 	return b
 }
 
-func (b MeshBuilder) withNumCUPerShaderArray(n int) MeshBuilder {
-	b.numCUPerShaderArray = n
-	return b
-}
-
-func (b MeshBuilder) withNumMemoryBank(n int) MeshBuilder {
-	b.numMemoryBankPerMesh = n
-	return b
-}
-
-func (b MeshBuilder) withLog2MemoryBankInterleavingSize(
+func (b meshBuilder) withLog2MemoryBankInterleavingSize(
 	n uint64,
-) MeshBuilder {
+) meshBuilder {
 	b.log2MemoryBankInterleavingSize = n
 	return b
 }
 
-func (b MeshBuilder) withRDMAEngine(r *rdma.Engine) MeshBuilder {
-	b.rdmaEngine = r
+func (b meshBuilder) withDMAEngine(
+	e *cp.DMAEngine,
+) meshBuilder {
+	b.dmaEngine = e
 	return b
 }
 
-func (b MeshBuilder) withL1CachesLowModuleFinder(
-	lmf *mem.InterleavedLowModuleFinder,
-) MeshBuilder {
-	b.L1CachesLowModuleFinder = lmf
+func (b meshBuilder) withPageMigrationController(
+	pmc *pagemigrationcontroller.PageMigrationController,
+) meshBuilder {
+	b.pageMigrationController = pmc
 	return b
 }
 
-func (b *MeshBuilder) Build(
+func (b meshBuilder) withGlobalStorage(s *mem.Storage) meshBuilder {
+	b.globalStorage = s
+	return b
+}
+
+func (b *meshBuilder) separatePeripheralPorts(m *mesh, ports []sim.Port) {
+	b.numTile = b.tileHeight * b.tileWidth
+	if b.numTile <= 0 {
+		errMsg := "Number of tile height and width must be set to positive " +
+			"number before separating peripheral ports of the mesh to the edge!\n"
+		panic(errMsg)
+	}
+	m.tilesPorts = make([][]sim.Port, b.numTile)
+	m.tilesPorts[0] = append(m.tilesPorts[0], ports...)
+
+	// batch := len(ports)
+	// load := batch / b.tileWidth
+	// rest := batch % b.tileWidth
+	// for i := 0; i < b.tileWidth; i++ {
+	// 	if i < rest {
+	// 		startPort := i * (load + 1)
+	// 		endPort := startPort + load + 1
+	// 		for j := startPort; j < endPort; j++ {
+	// 			m.tilesPorts[i] = append(m.tilesPorts[i], ports[j])
+	// 		}
+	// 	} else {
+	// 		startPort := i*load + rest
+	// 		endPort := startPort + load
+	// 		for j := startPort; j < endPort; j++ {
+	// 			m.tilesPorts[i] = append(m.tilesPorts[i], ports[j])
+	// 		}
+	// 	}
+	// }
+}
+
+func (b *meshBuilder) Build(
 	name string,
 	periphPorts []sim.Port,
-) *MeshComponent {
+) *mesh {
 	b.name = name
-	m := MeshComponent{}
-	m.periphPorts = periphPorts
+	b.numMemoryBank = b.tileHeight * b.tileWidth
+	b.dramBuilder = b.createDramControllerBuilder()
 
-	m.meshConn = mesh.NewConnector().
+	m := mesh{}
+	b.separatePeripheralPorts(&m, periphPorts)
+
+	m.meshConn = meshNetwork.NewConnector().
 		WithEngine(b.engine).
 		WithFreq(b.freq)
 	m.meshConn.CreateNetwork(b.name)
-	// b.attachPeriphPortsToMesh(&m, periphPorts)
 
 	b.buildTiles(&m)
 
@@ -204,282 +236,305 @@ func (b *MeshBuilder) Build(
 	return &m
 }
 
-func (b *MeshBuilder) attachPeriphPortsToMesh(
-	m *MeshComponent,
-	ports []sim.Port,
-) {
-	// TODO
-	m.meshConn.AddTile([3]int{0, 0, 0}, ports)
-}
-
-func (b *MeshBuilder) attachPeriphPortsToTile0(
-	m *MeshComponent,
-) {
-	// TODO
-	m.tiles[0].externalPorts = append(m.tiles[0].externalPorts, m.periphPorts...)
-}
-
-func (b *MeshBuilder) buildTiles(m *MeshComponent) {
-	saBuilder := b.makeSABuilder()
-
-	for x := 0; x < b.tileWidth; x++ {
-		for y := 0; y < b.tileHeight; y++ {
-			if x == 0 && y == 0 {
-				continue
-			}
-			tileName := fmt.Sprintf("%s.Tile_[%02d,%02d]", b.name, x, y)
-			t := Tile{
-				name: tileName,
-				loc:  [3]int{x, y, 0},
-			}
-
-			b.buildTile(&t, saBuilder)
-			b.fillL1TLBLowModules(&t)
-			m.tiles = append(m.tiles, &t)
-		}
-	}
-	b.attachPeriphPortsToTile0(m)
-	for _, t := range m.tiles {
-		b.setL1CachesLowModuleFinder(t)
-		b.populateTileComponents(t)
-		b.populateTileExternalPorts(t)
-		m.meshConn.AddTile(t.loc, t.externalPorts)
-	}
-}
-
-func (b *MeshBuilder) makeSABuilder() shaderArrayBuilder {
-	saBuilder := makeShaderArrayBuilder().
+func (b *meshBuilder) buildTiles(m *mesh) {
+	tileBuilder := makeTileBuilder().
 		withEngine(b.engine).
 		withFreq(b.freq).
 		withGPUID(b.gpuID).
 		withLog2CachelineSize(b.log2CacheLineSize).
 		withLog2PageSize(b.log2PageSize).
-		withNumCU(b.numCUPerShaderArray)
+		withDRAMBuilder(b.dramBuilder)
+
+	if b.enableISADebugging {
+		tileBuilder = tileBuilder.withIsaDebugging()
+	}
 
 	if b.enableVisTracing {
-		saBuilder = saBuilder.withVisTracer(b.visTracer)
+		tileBuilder = tileBuilder.withVisTracer(b.visTracer)
 	}
 
 	if b.enableMemTracing {
-		saBuilder = saBuilder.withMemTracer(b.memTracer)
+		tileBuilder = tileBuilder.withMemTracer(b.memTracer)
 	}
 
-	return saBuilder
+	for x := 0; x < b.tileHeight; x++ {
+		for y := 0; y < b.tileWidth; y++ {
+			name := fmt.Sprintf("%s.Tile_[%02d,%02d]", b.name, x, y)
+			t := tileBuilder.Build(name)
+			m.tiles = append(m.tiles, &t)
+		}
+	}
+
+	b.buildMemoryLowModules(m)
+	b.fillATsLowModules(m)
+	b.fillL1TLBLowModules(m)
+	b.exportTilesPorts(m)
+	b.populateMeshComponents(m)
+
+	for x := 0; x < b.tileHeight; x++ {
+		for y := 0; y < b.tileWidth; y++ {
+			idx := x*b.tileWidth + y
+			m.meshConn.AddTile([3]int{x, y, 0}, m.tilesPorts[idx])
+		}
+	}
 }
 
-func (b *MeshBuilder) buildTile(
-	t *Tile,
-	saBuilder shaderArrayBuilder,
-) {
-	sa := saBuilder.Build(t.name)
-	t.sa = &sa
+func (b *meshBuilder) buildMemoryLowModules(m *mesh) {
+	// lowModuleFinder := mem.NewBankedLowModuleFinder(b.dramSize)
+	lowModuleFinder := mem.NewInterleavedLowModuleFinder(
+		1 << b.log2MemoryBankInterleavingSize)
+
+	// lowModuleFinder.UseAddressSpaceLimitation = true
+	// lowModuleFinder.LowAddress = b.memAddrOffset
+	// lowModuleFinder.HighAddress = b.memAddrOffset + b.dramSize
+
+	for _, t := range m.tiles {
+		lowModuleFinder.LowModules = append(
+			lowModuleFinder.LowModules,
+			t.mem.GetPortByName("Top"),
+		)
+	}
+
+	b.dmaEngine.SetLocalDataSource(lowModuleFinder)
+	b.pageMigrationController.MemCtrlFinder = lowModuleFinder
+	m.memLowModuleFinder = lowModuleFinder
 }
 
-func (b *MeshBuilder) populateTileExternalPorts(t *Tile) {
-	b.exportCUs(t)
-	b.exportATsAndROBs(t)
-	b.exportL1TLBs(t)
-	b.exportCaches(t)
+func (b *meshBuilder) createDramControllerBuilder() dram.Builder {
+	memBankSize := b.dramSize / uint64(b.numMemoryBank)
+	if b.dramSize%uint64(b.numMemoryBank) != 0 {
+		panic("GPU memory size is not a multiple of the number of memory banks")
+	}
+
+	dramCol := 64
+	dramRow := 16384
+	dramDeviceWidth := 128
+	dramBankSize := dramCol * dramRow * dramDeviceWidth
+	dramBank := 4
+	dramBankGroup := 4
+	dramBusWidth := 256
+	dramDevicePerRank := dramBusWidth / dramDeviceWidth
+	dramRankSize := dramBankSize * dramDevicePerRank * dramBank
+	dramRank := int(memBankSize * 8 / uint64(dramRankSize))
+
+	memCtrlBuilder := dram.MakeBuilder().
+		WithEngine(b.engine).
+		WithFreq(500 * sim.MHz).
+		WithProtocol(dram.HBM).
+		WithBurstLength(4).
+		WithDeviceWidth(dramDeviceWidth).
+		WithBusWidth(dramBusWidth).
+		WithNumChannel(1).
+		WithNumRank(dramRank).
+		WithNumBankGroup(dramBankGroup).
+		WithNumBank(dramBank).
+		WithNumCol(dramCol).
+		WithNumRow(dramRow).
+		WithCommandQueueSize(8).
+		WithTransactionQueueSize(32).
+		WithTCL(7).
+		WithTCWL(2).
+		WithTRCDRD(7).
+		WithTRCDWR(7).
+		WithTRP(7).
+		WithTRAS(17).
+		WithTREFI(1950).
+		WithTRRDS(2).
+		WithTRRDL(3).
+		WithTWTRS(3).
+		WithTWTRL(4).
+		WithTWR(8).
+		WithTCCDS(1).
+		WithTCCDL(1).
+		WithTRTRS(0).
+		WithTRTP(3).
+		WithTPPD(2)
+
+	if b.visTracer != nil {
+		memCtrlBuilder = memCtrlBuilder.WithAdditionalTracer(b.visTracer)
+	}
+
+	if b.globalStorage != nil {
+		memCtrlBuilder = memCtrlBuilder.WithGlobalStorage(b.globalStorage)
+	}
+
+	return memCtrlBuilder
 }
 
-func (b *MeshBuilder) exportCUs(t *Tile) {
+func (b *meshBuilder) exportTilesPorts(m *mesh) {
+	b.exportCUs(m)
+	b.exportROBs(m)
+	b.exportATs(m)
+	b.exportDRAMs(m)
+	b.exportL1TLBs(m)
+}
+
+func (b *meshBuilder) exportCUs(m *mesh) {
 	/* CUs(ToACE) <-> CP */
 	/* CUs(ToCP) <-> CP ; ToCP is control port of CU */
-	for _, cu := range t.sa.cus {
+	for idx, t := range m.tiles {
+		cu := t.cu
 		b.cp.RegisterCU(cu)
-		t.externalPorts = append(t.externalPorts, cu.ToACE)
-		t.externalPorts = append(t.externalPorts, cu.ToCP)
+		m.tilesPorts[idx] = append(m.tilesPorts[idx], cu.ToACE)
+		m.tilesPorts[idx] = append(m.tilesPorts[idx], cu.ToCP)
 	}
 }
 
-func (b *MeshBuilder) exportATsAndROBs(t *Tile) {
-	/* L1vATs(Control) <-> CP */
-	for _, l1vAT := range t.sa.l1vATs {
-		ctrlPort := l1vAT.GetPortByName("Control")
-		t.externalPorts = append(t.externalPorts, ctrlPort)
+func (b *meshBuilder) exportROBs(m *mesh) {
+	var ctrlPort sim.Port
+	for idx, t := range m.tiles {
+		/* L1vROB(Control) <-> CP */
+		ctrlPort = t.l1vROB.GetPortByName("Control")
+		m.tilesPorts[idx] = append(m.tilesPorts[idx], ctrlPort)
+		b.cp.AddressTranslators = append(b.cp.AddressTranslators, ctrlPort)
+
+		/* L1sROB(Control) <-> CP */
+		ctrlPort = t.l1sROB.GetPortByName("Control")
+		m.tilesPorts[idx] = append(m.tilesPorts[idx], ctrlPort)
+		b.cp.AddressTranslators = append(b.cp.AddressTranslators, ctrlPort)
+
+		/* L1iROB(Control) <-> CP */
+		ctrlPort = t.l1iROB.GetPortByName("Control")
+		m.tilesPorts[idx] = append(m.tilesPorts[idx], ctrlPort)
 		b.cp.AddressTranslators = append(b.cp.AddressTranslators, ctrlPort)
 	}
-
-	/* L1sAT(Control) <-> CP */
-	l1sATCtrlPort := t.sa.l1sAT.GetPortByName("Control")
-	t.externalPorts = append(t.externalPorts, l1sATCtrlPort)
-	b.cp.AddressTranslators = append(b.cp.AddressTranslators, l1sATCtrlPort)
-
-	/* L1iAT(Bottom) <-> L2 caches(Top) */
-	/* L1iAT(Control) <-> CP */
-	l1iATBottom := t.sa.l1iAT.GetPortByName("Bottom")
-	l1iATCtrlPort := t.sa.l1iAT.GetPortByName("Control")
-	t.externalPorts = append(t.externalPorts, l1iATBottom)
-	t.externalPorts = append(t.externalPorts, l1iATCtrlPort)
-	b.cp.AddressTranslators = append(b.cp.AddressTranslators, l1iATCtrlPort)
-
-	/* L1vROBs(Control) <-> CP */
-	for _, l1vROB := range t.sa.l1vROBs {
-		ctrlPort := l1vROB.GetPortByName("Control")
-		t.externalPorts = append(t.externalPorts, ctrlPort)
-		b.cp.AddressTranslators = append(b.cp.AddressTranslators, ctrlPort)
-	}
-
-	/* L1sROB(Control) <-> CP */
-	l1sROBCtrlPort := t.sa.l1sROB.GetPortByName("Control")
-	t.externalPorts = append(t.externalPorts, l1sROBCtrlPort)
-	b.cp.AddressTranslators = append(b.cp.AddressTranslators, l1sROBCtrlPort)
-
-	/* L1iROB(Control) <-> CP */
-	l1iROBCtrlPort := t.sa.l1iROB.GetPortByName("Control")
-	t.externalPorts = append(t.externalPorts, l1iROBCtrlPort)
-	b.cp.AddressTranslators = append(b.cp.AddressTranslators, l1iROBCtrlPort)
 }
 
-func (b *MeshBuilder) exportL1TLBs(t *Tile) {
-	/* L1vTLBs(Bottom) <-> L2TLB(Top) */
-	/* L1vTLBs(Control) <-> CP */
-	for _, tlb := range t.sa.l1vTLBs {
-		bottom := tlb.GetPortByName("Bottom")
-		ctrlPort := tlb.GetPortByName("Control")
-		t.externalPorts = append(t.externalPorts, bottom)
-		t.externalPorts = append(t.externalPorts, ctrlPort)
+func (b *meshBuilder) exportATs(m *mesh) {
+	var ctrlPort, bottom sim.Port
+	for idx, t := range m.tiles {
+		/* L1vAT(Bottom) <-> Mesh Memory(Top) */
+		/* L1vAT(Control) <-> CP */
+		bottom = t.l1vAT.GetPortByName("Bottom")
+		ctrlPort = t.l1vAT.GetPortByName("Control")
+		m.tilesPorts[idx] = append(m.tilesPorts[idx], bottom)
+		m.tilesPorts[idx] = append(m.tilesPorts[idx], ctrlPort)
+		b.cp.AddressTranslators = append(b.cp.AddressTranslators, ctrlPort)
+
+		/* L1sAT(Bottom) <-> Mesh Memory(Top) */
+		/* L1sAT(Control) <-> CP */
+		bottom = t.l1sAT.GetPortByName("Bottom")
+		ctrlPort = t.l1sAT.GetPortByName("Control")
+		m.tilesPorts[idx] = append(m.tilesPorts[idx], bottom)
+		m.tilesPorts[idx] = append(m.tilesPorts[idx], ctrlPort)
+		b.cp.AddressTranslators = append(b.cp.AddressTranslators, ctrlPort)
+
+		/* L1iAT(Bottom) <-> Mesh Memory(Top) */
+		/* L1iAT(Control) <-> CP */
+		bottom = t.l1iAT.GetPortByName("Bottom")
+		ctrlPort = t.l1iAT.GetPortByName("Control")
+		m.tilesPorts[idx] = append(m.tilesPorts[idx], bottom)
+		m.tilesPorts[idx] = append(m.tilesPorts[idx], ctrlPort)
+		b.cp.AddressTranslators = append(b.cp.AddressTranslators, ctrlPort)
+	}
+}
+
+func (b *meshBuilder) exportDRAMs(m *mesh) {
+	var top sim.Port
+	for idx, t := range m.tiles {
+		/* Mesh Memory(Top) <-> L1vAT(Bottom) */
+		/* Mesh Memory(Top) <-> L1sAT(Bottom) */
+		/* Mesh Memory(Top) <-> L1iAT(Bottom) */
+		top = t.mem.GetPortByName("Top")
+		m.tilesPorts[idx] = append(m.tilesPorts[idx], top)
+	}
+}
+
+func (b *meshBuilder) exportL1TLBs(m *mesh) {
+	var bottom, ctrlPort sim.Port
+	for idx, t := range m.tiles {
+		/* L1vTLBs(Bottom) <-> L2TLB(Top) */
+		/* L1vTLBs(Control) <-> CP */
+		bottom = t.l1vTLB.GetPortByName("Bottom")
+		ctrlPort = t.l1vTLB.GetPortByName("Control")
+		m.tilesPorts[idx] = append(m.tilesPorts[idx], bottom)
+		m.tilesPorts[idx] = append(m.tilesPorts[idx], ctrlPort)
+		b.cp.TLBs = append(b.cp.TLBs, ctrlPort)
+
+		/* L1sTLB(Bottom) <-> L2TLB(Top) */
+		/* L1sTLB(Control) <-> CP */
+		bottom = t.l1sTLB.GetPortByName("Bottom")
+		ctrlPort = t.l1sTLB.GetPortByName("Control")
+		m.tilesPorts[idx] = append(m.tilesPorts[idx], bottom)
+		m.tilesPorts[idx] = append(m.tilesPorts[idx], ctrlPort)
+		b.cp.TLBs = append(b.cp.TLBs, ctrlPort)
+
+		/* L1iTLB(Bottom) <-> L2TLB(Top) */
+		/* L1iTLB(Control) <-> CP */
+		bottom = t.l1iTLB.GetPortByName("Bottom")
+		ctrlPort = t.l1iTLB.GetPortByName("Control")
+		m.tilesPorts[idx] = append(m.tilesPorts[idx], bottom)
+		m.tilesPorts[idx] = append(m.tilesPorts[idx], ctrlPort)
 		b.cp.TLBs = append(b.cp.TLBs, ctrlPort)
 	}
-
-	/* L1sTLB(Bottom) <-> L2TLB(Top) */
-	/* L1sTLB(Control) <-> CP */
-	l1sTLBBottom := t.sa.l1sTLB.GetPortByName("Bottom")
-	l1sTLBCtrlPort := t.sa.l1sTLB.GetPortByName("Control")
-	t.externalPorts = append(t.externalPorts, l1sTLBBottom)
-	t.externalPorts = append(t.externalPorts, l1sTLBCtrlPort)
-	b.cp.TLBs = append(b.cp.TLBs, l1sTLBCtrlPort)
-
-	/* L1iTLB(Bottom) <-> L2TLB(Top) */
-	/* L1iTLB(Control) <-> CP */
-	l1iTLBBottom := t.sa.l1iTLB.GetPortByName("Bottom")
-	l1iTLBCtrlPort := t.sa.l1iTLB.GetPortByName("Control")
-	t.externalPorts = append(t.externalPorts, l1iTLBBottom)
-	t.externalPorts = append(t.externalPorts, l1iTLBCtrlPort)
-	b.cp.TLBs = append(b.cp.TLBs, l1iTLBCtrlPort)
-
 }
 
-func (b *MeshBuilder) exportCaches(t *Tile) {
-	/* L1v Caches(Bottom) <-> L2 Caches(Top) */
-	/* L1v Caches(Control) <-> CP */
-	for _, l1v := range t.sa.l1vCaches {
-		bottom := l1v.GetPortByName("Bottom")
-		ctrlPort := l1v.GetPortByName("Control")
-		t.externalPorts = append(t.externalPorts, bottom)
-		t.externalPorts = append(t.externalPorts, ctrlPort)
-		b.cp.L1VCaches = append(b.cp.L1VCaches, ctrlPort)
-	}
-
-	/* L1s Cache(Bottom) <-> L2 Caches(Top) */
-	/* L1s Cache(Control) <-> CP */
-	l1sBottom := t.sa.l1sCache.GetPortByName("Bottom")
-	l1sCtrlPort := t.sa.l1sCache.GetPortByName("Control")
-	t.externalPorts = append(t.externalPorts, l1sBottom)
-	t.externalPorts = append(t.externalPorts, l1sCtrlPort)
-	b.cp.L1SCaches = append(b.cp.L1SCaches, l1sCtrlPort)
-
-	/* L1i Cache(Control) <-> CP */
-	l1iCtrlPort := t.sa.l1iCache.GetPortByName("Control")
-	t.externalPorts = append(t.externalPorts, l1iCtrlPort)
-	b.cp.L1ICaches = append(b.cp.L1ICaches, l1iCtrlPort)
-
-}
-
-func (b *MeshBuilder) populateTileComponents(t *Tile) {
-	// Only populate components in shader array, since the
+func (b *meshBuilder) populateMeshComponents(m *mesh) {
+	// Only populate components in tile, since the
 	// L2Caches have been populated during the build stage.
-	b.populateCUs(t.sa)
-	b.populateROBs(t.sa)
-	b.populateL1TLBs(t.sa)
-	b.populateL1VAddressTranslators(t.sa)
-	b.populateL1Vs(t.sa)
-	b.populateScalerMemoryHierarchy(t.sa)
-	b.populateInstMemoryHierarchy(t.sa)
+	b.populateCUs(m)
+	b.populateROBs(m)
+	b.populateATs(m)
+	b.populateDRAMs(m)
+	b.populateL1TLBs(m)
 }
 
-func (b *MeshBuilder) populateCUs(sa *shaderArray) {
-	for _, cu := range sa.cus {
-		b.gpuPtr.CUs = append(b.gpuPtr.CUs, cu)
+func (b *meshBuilder) populateCUs(m *mesh) {
+	for _, t := range m.tiles {
+		b.gpuPtr.CUs = append(b.gpuPtr.CUs, t.cu)
 
 		if b.monitor != nil {
-			b.monitor.RegisterComponent(cu)
+			b.monitor.RegisterComponent(t.cu)
 		}
 	}
 }
 
-func (b *MeshBuilder) populateROBs(sa *shaderArray) {
-	for _, rob := range sa.l1vROBs {
+func (b *meshBuilder) populateROBs(m *mesh) {
+	for _, t := range m.tiles {
 		if b.monitor != nil {
-			b.monitor.RegisterComponent(rob)
+			b.monitor.RegisterComponent(t.l1vROB)
 		}
 	}
 }
 
-func (b *MeshBuilder) populateL1TLBs(sa *shaderArray) {
-	for _, tlb := range sa.l1vTLBs {
-		b.gpuPtr.L1VTLBs = append(b.gpuPtr.L1VTLBs, tlb)
-
+func (b *meshBuilder) populateATs(m *mesh) {
+	for _, t := range m.tiles {
 		if b.monitor != nil {
-			b.monitor.RegisterComponent(tlb)
+			b.monitor.RegisterComponent(t.l1vAT)
 		}
 	}
 }
 
-func (b *MeshBuilder) populateL1Vs(sa *shaderArray) {
-	for _, l1v := range sa.l1vCaches {
-		b.gpuPtr.L1VCaches = append(b.gpuPtr.L1VCaches, l1v)
+func (b *meshBuilder) populateL1TLBs(m *mesh) {
+	for _, t := range m.tiles {
+		b.gpuPtr.L1VTLBs = append(b.gpuPtr.L1VTLBs, t.l1vTLB)
+		b.gpuPtr.L1STLBs = append(b.gpuPtr.L1STLBs, t.l1sTLB)
+		b.gpuPtr.L1ITLBs = append(b.gpuPtr.L1ITLBs, t.l1iTLB)
 
 		if b.monitor != nil {
-			b.monitor.RegisterComponent(l1v)
+			b.monitor.RegisterComponent(t.l1vTLB)
 		}
 	}
 }
 
-func (b *MeshBuilder) populateL1VAddressTranslators(sa *shaderArray) {
-	for _, at := range sa.l1vATs {
-		if b.monitor != nil {
-			b.monitor.RegisterComponent(at)
-		}
+func (b *meshBuilder) populateDRAMs(m *mesh) {
+	for _, t := range m.tiles {
+		b.gpuPtr.MemControllers = append(b.gpuPtr.MemControllers, t.mem)
 	}
 }
 
-func (b *MeshBuilder) populateScalerMemoryHierarchy(sa *shaderArray) {
-	b.gpuPtr.L1SCaches = append(b.gpuPtr.L1SCaches, sa.l1sCache)
-	b.gpuPtr.L1STLBs = append(b.gpuPtr.L1STLBs, sa.l1sTLB)
-}
-
-func (b *MeshBuilder) populateInstMemoryHierarchy(sa *shaderArray) {
-	b.gpuPtr.L1ICaches = append(b.gpuPtr.L1ICaches, sa.l1iCache)
-	b.gpuPtr.L1ITLBs = append(b.gpuPtr.L1ITLBs, sa.l1iTLB)
-}
-
-func (b MeshBuilder) getNumMemoryBankPerTile() int {
-	numTile := b.tileHeight * b.tileWidth
-
-	if (b.numMemoryBankPerMesh % numTile) != 0 {
-		errMsg := fmt.Sprintf(
-			"Memory bank number %d is not evenly divisible"+
-				"by tile number %d (tile height: %d, width: %d)!\n",
-			b.numMemoryBankPerMesh, numTile, b.tileHeight, b.tileWidth)
-		panic(errMsg)
+func (b *meshBuilder) fillL1TLBLowModules(m *mesh) {
+	for _, t := range m.tiles {
+		t.l1vTLB.LowModule = b.l2TLB.GetPortByName("Top")
+		t.l1iTLB.LowModule = b.l2TLB.GetPortByName("Top")
+		t.l1sTLB.LowModule = b.l2TLB.GetPortByName("Top")
 	}
-
-	return b.numMemoryBankPerMesh / numTile
 }
 
-func (b *MeshBuilder) fillL1TLBLowModules(t *Tile) {
-	for _, l1vTLB := range t.sa.l1vTLBs {
-		l1vTLB.LowModule = b.l2TLB.GetPortByName("Top")
+func (b *meshBuilder) fillATsLowModules(m *mesh) {
+	for _, t := range m.tiles {
+		t.l1vAT.SetLowModuleFinder(m.memLowModuleFinder)
+		t.l1sAT.SetLowModuleFinder(m.memLowModuleFinder)
+		t.l1iAT.SetLowModuleFinder(m.memLowModuleFinder)
 	}
-	t.sa.l1iTLB.LowModule = b.l2TLB.GetPortByName("Top")
-	t.sa.l1sTLB.LowModule = b.l2TLB.GetPortByName("Top")
-}
-
-func (b *MeshBuilder) setL1CachesLowModuleFinder(t *Tile) {
-	for _, l1v := range t.sa.l1vCaches {
-		l1v.SetLowModuleFinder(b.L1CachesLowModuleFinder)
-	}
-	t.sa.l1sCache.SetLowModuleFinder(b.L1CachesLowModuleFinder)
-	t.sa.l1iAT.SetLowModuleFinder(b.L1CachesLowModuleFinder)
 }
