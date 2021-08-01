@@ -1,4 +1,4 @@
-package runner
+package mgpu_config
 
 import (
 	"gitlab.com/akita/akita/v2/sim"

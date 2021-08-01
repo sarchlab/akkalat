@@ -1,4 +1,4 @@
-package runner
+package mgpu_config
 
 import (
 	"github.com/tebeka/atexit"

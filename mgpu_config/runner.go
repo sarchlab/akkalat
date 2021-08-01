@@ -202,9 +202,11 @@ func (r *Runner) Init() *Runner {
 
 	if r.Timing {
 		r.buildTimingPlatform()
-	} else {
+	}
+	/* else {
 		r.buildEmuPlatform()
 	}
+	*/
 
 	r.createUnifiedGPUs()
 
@@ -226,6 +228,7 @@ func (r *Runner) defineMetrics() {
 	atexit.Register(func() { r.reportStats() })
 }
 
+/*
 func (r *Runner) buildEmuPlatform() {
 	b := MakeEmuBuilder().
 		WithNumGPU(r.GPUIDs[len(r.GPUIDs)-1])
@@ -248,6 +251,7 @@ func (r *Runner) buildEmuPlatform() {
 
 	r.platform = b.Build()
 }
+*/
 
 func (r *Runner) buildTimingPlatform() {
 	b := MakeR9NanoBuilder().

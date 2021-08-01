@@ -5,6 +5,7 @@ require (
 	gitlab.com/akita/akita/v2 v2.0.2
 	gitlab.com/akita/mem/v2 v2.0.0 // indirect
 	gitlab.com/akita/mgpusim/v2 v2.0.0 // indirect
+	gitlab.com/akita/util v0.7.1 // indirect
 	gitlab.com/akita/util/v2 v2.0.0 // indirect
 )
 

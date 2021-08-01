@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
-	runner "github.com/sarchlab/akkalab/mgpu_config"
-	"gitlab.com/akita/mgpusim/v2/benchmarks/heteromark/fir"
+	"gitlab.com/akita/mgpusim/benchmarks/heteromark/fir"
+	"honnef.co/go/tools/lintcmd/runner"
 )
 
 var numData = flag.Int("length", 4096, "The number of samples to filter.")
