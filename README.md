@@ -1,4 +1,5 @@
 # akkalat
+
 Akkalat is the infrastructure to simulation wafer-scale GPUs. 
 
 ## CU-level mesh based on Shader Array (v1)
@@ -28,18 +29,19 @@ go build && ./fft -timing -report-all -parallel -verify
 
 ### Synopsis
 
-In this part, we propose a new **tile** model without any cache inside. We implement each **tile** with a CU, DRAM(Interleaved), L1(v/s/i)ROBs, L1(v/s/i)ATs and L1(v/s/i)TLB, in an insulated Golang file called `tile.go`.
+In this part, we propose a new **tile** model without any cache inside. We implement each **tile** with a CU, SRAM(Interleaved), L1(v/s/i)ROBs, L1(v/s/i)ATs and L1(v/s/i)TLB, in an insulated Golang file called `tile.go`.
 
 Outside the mesh, we remove the L2 Caches and peripheral DRAM memory banks compared to v1. `ToMesh` is a new variable name to replace the `periphPorts`, and we separated these ports in edge of the mesh, i.e., tile[0, 0..width], instead of directly connecting them to mesh in tile[0, 0]. The detailed descriptions of the connections can be found in `gpu.go` comments.
 
 ### Build
 
+We update a clean way to use Golang module management in `go.mod` instead of raw codebase as v1 build, thus we could run `go build` to automatically fetch and import the packages for our project.
+
 ```bash
-MGPUSIM_DIR=/path/to/your/mgpusim
-# Please be careful about the potential overriding operation, 
-# although `-b` options would backup the old files in runner
-mv -b -v runner/* $MGPUSIM_DIR/samples/runner
-mv r9nanobuilder.go r9nanobuilder.go_not_used
-cd $MGPUSIM_DIR/fft
-go build && ./fft -timing -report-all -verify
+git clone git@github.com:sarchlab/akkalat.git
+cd akkalat
+git checkout cu-level-without-caches
+cd samples/fir
+go build
+./fir -verify -timing
 ```
