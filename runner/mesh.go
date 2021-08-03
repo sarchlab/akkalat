@@ -5,7 +5,6 @@ import (
 
 	"gitlab.com/akita/akita/v2/monitoring"
 	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mem/v2/dram"
 	"gitlab.com/akita/mem/v2/mem"
 	"gitlab.com/akita/mem/v2/vm/tlb"
 	"gitlab.com/akita/mgpusim/v2/timing/cp"
@@ -15,9 +14,8 @@ import (
 )
 
 type mesh struct {
-	tiles      []*tile
-	tilesPorts [][]sim.Port
-	// drams              []*idealmemcontroller.Comp
+	tiles              []*tile
+	tilesPorts         [][]sim.Port
 	memLowModuleFinder *mem.InterleavedLowModuleFinder
 	meshConn           *meshNetwork.Connector
 }
@@ -35,7 +33,6 @@ type meshBuilder struct {
 	memAddrOffset      uint64
 	log2CacheLineSize  uint64
 	log2PageSize       uint64
-	dramSize           uint64
 	visTracer          tracing.Tracer
 	memTracer          tracing.Tracer
 	enableISADebugging bool
@@ -46,11 +43,9 @@ type meshBuilder struct {
 	tileWidth                      int
 	tileHeight                     int
 	numTile                        int
-	numMemoryBank                  int
 	log2MemoryBankInterleavingSize uint64
 
 	dmaEngine               *cp.DMAEngine
-	dramBuilder             dram.Builder
 	globalStorage           *mem.Storage
 	pageMigrationController *pagemigrationcontroller.PageMigrationController
 }
@@ -120,11 +115,6 @@ func (b meshBuilder) withLog2PageSize(
 	return b
 }
 
-func (b meshBuilder) WithDRAMSize(size uint64) meshBuilder {
-	b.dramSize = size
-	return b
-}
-
 func (b meshBuilder) WithISADebugging() meshBuilder {
 	b.enableISADebugging = true
 	return b
@@ -191,26 +181,27 @@ func (b *meshBuilder) separatePeripheralPorts(m *mesh, ports []sim.Port) {
 		panic(errMsg)
 	}
 	m.tilesPorts = make([][]sim.Port, b.numTile)
-	m.tilesPorts[0] = append(m.tilesPorts[0], ports...)
+	// Simplest way, to attach peripheral ports to Tile[0, 0].
+	// m.tilesPorts[0] = append(m.tilesPorts[0], ports...)
 
-	// batch := len(ports)
-	// load := batch / b.tileWidth
-	// rest := batch % b.tileWidth
-	// for i := 0; i < b.tileWidth; i++ {
-	// 	if i < rest {
-	// 		startPort := i * (load + 1)
-	// 		endPort := startPort + load + 1
-	// 		for j := startPort; j < endPort; j++ {
-	// 			m.tilesPorts[i] = append(m.tilesPorts[i], ports[j])
-	// 		}
-	// 	} else {
-	// 		startPort := i*load + rest
-	// 		endPort := startPort + load
-	// 		for j := startPort; j < endPort; j++ {
-	// 			m.tilesPorts[i] = append(m.tilesPorts[i], ports[j])
-	// 		}
-	// 	}
-	// }
+	batch := len(ports)
+	load := batch / b.tileWidth
+	rest := batch % b.tileWidth
+	for i := 0; i < b.tileWidth; i++ {
+		if i < rest {
+			startPort := i * (load + 1)
+			endPort := startPort + load + 1
+			for j := startPort; j < endPort; j++ {
+				m.tilesPorts[i] = append(m.tilesPorts[i], ports[j])
+			}
+		} else {
+			startPort := i*load + rest
+			endPort := startPort + load
+			for j := startPort; j < endPort; j++ {
+				m.tilesPorts[i] = append(m.tilesPorts[i], ports[j])
+			}
+		}
+	}
 }
 
 func (b *meshBuilder) Build(
@@ -218,8 +209,6 @@ func (b *meshBuilder) Build(
 	periphPorts []sim.Port,
 ) *mesh {
 	b.name = name
-	b.numMemoryBank = b.tileHeight * b.tileWidth
-	b.dramBuilder = b.createDramControllerBuilder()
 
 	m := mesh{}
 	b.separatePeripheralPorts(&m, periphPorts)
@@ -243,7 +232,7 @@ func (b *meshBuilder) buildTiles(m *mesh) {
 		withGPUID(b.gpuID).
 		withLog2CachelineSize(b.log2CacheLineSize).
 		withLog2PageSize(b.log2PageSize).
-		withDRAMBuilder(b.dramBuilder)
+		WithGlobalStorage(b.globalStorage)
 
 	if b.enableISADebugging {
 		tileBuilder = tileBuilder.withIsaDebugging()
@@ -280,7 +269,6 @@ func (b *meshBuilder) buildTiles(m *mesh) {
 }
 
 func (b *meshBuilder) buildMemoryLowModules(m *mesh) {
-	// lowModuleFinder := mem.NewBankedLowModuleFinder(b.dramSize)
 	lowModuleFinder := mem.NewInterleavedLowModuleFinder(
 		1 << b.log2MemoryBankInterleavingSize)
 
@@ -300,72 +288,11 @@ func (b *meshBuilder) buildMemoryLowModules(m *mesh) {
 	m.memLowModuleFinder = lowModuleFinder
 }
 
-func (b *meshBuilder) createDramControllerBuilder() dram.Builder {
-	memBankSize := b.dramSize / uint64(b.numMemoryBank)
-	if b.dramSize%uint64(b.numMemoryBank) != 0 {
-		panic("GPU memory size is not a multiple of the number of memory banks")
-	}
-
-	dramCol := 64
-	dramRow := 16384
-	dramDeviceWidth := 128
-	dramBankSize := dramCol * dramRow * dramDeviceWidth
-	dramBank := 4
-	dramBankGroup := 4
-	dramBusWidth := 256
-	dramDevicePerRank := dramBusWidth / dramDeviceWidth
-	dramRankSize := dramBankSize * dramDevicePerRank * dramBank
-	dramRank := int(memBankSize * 8 / uint64(dramRankSize))
-
-	memCtrlBuilder := dram.MakeBuilder().
-		WithEngine(b.engine).
-		WithFreq(500 * sim.MHz).
-		WithProtocol(dram.HBM).
-		WithBurstLength(4).
-		WithDeviceWidth(dramDeviceWidth).
-		WithBusWidth(dramBusWidth).
-		WithNumChannel(1).
-		WithNumRank(dramRank).
-		WithNumBankGroup(dramBankGroup).
-		WithNumBank(dramBank).
-		WithNumCol(dramCol).
-		WithNumRow(dramRow).
-		WithCommandQueueSize(8).
-		WithTransactionQueueSize(32).
-		WithTCL(7).
-		WithTCWL(2).
-		WithTRCDRD(7).
-		WithTRCDWR(7).
-		WithTRP(7).
-		WithTRAS(17).
-		WithTREFI(1950).
-		WithTRRDS(2).
-		WithTRRDL(3).
-		WithTWTRS(3).
-		WithTWTRL(4).
-		WithTWR(8).
-		WithTCCDS(1).
-		WithTCCDL(1).
-		WithTRTRS(0).
-		WithTRTP(3).
-		WithTPPD(2)
-
-	if b.visTracer != nil {
-		memCtrlBuilder = memCtrlBuilder.WithAdditionalTracer(b.visTracer)
-	}
-
-	if b.globalStorage != nil {
-		memCtrlBuilder = memCtrlBuilder.WithGlobalStorage(b.globalStorage)
-	}
-
-	return memCtrlBuilder
-}
-
 func (b *meshBuilder) exportTilesPorts(m *mesh) {
 	b.exportCUs(m)
 	b.exportROBs(m)
 	b.exportATs(m)
-	b.exportDRAMs(m)
+	b.exportSRAMs(m)
 	b.exportL1TLBs(m)
 }
 
@@ -429,7 +356,7 @@ func (b *meshBuilder) exportATs(m *mesh) {
 	}
 }
 
-func (b *meshBuilder) exportDRAMs(m *mesh) {
+func (b *meshBuilder) exportSRAMs(m *mesh) {
 	var top sim.Port
 	for idx, t := range m.tiles {
 		/* Mesh Memory(Top) <-> L1vAT(Bottom) */
@@ -470,12 +397,10 @@ func (b *meshBuilder) exportL1TLBs(m *mesh) {
 }
 
 func (b *meshBuilder) populateMeshComponents(m *mesh) {
-	// Only populate components in tile, since the
-	// L2Caches have been populated during the build stage.
 	b.populateCUs(m)
 	b.populateROBs(m)
 	b.populateATs(m)
-	b.populateDRAMs(m)
+	b.populateSRAMs(m)
 	b.populateL1TLBs(m)
 }
 
@@ -517,7 +442,7 @@ func (b *meshBuilder) populateL1TLBs(m *mesh) {
 	}
 }
 
-func (b *meshBuilder) populateDRAMs(m *mesh) {
+func (b *meshBuilder) populateSRAMs(m *mesh) {
 	for _, t := range m.tiles {
 		b.gpuPtr.MemControllers = append(b.gpuPtr.MemControllers, t.mem)
 	}

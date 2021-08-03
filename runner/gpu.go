@@ -21,7 +21,7 @@ type WaferScaleGPUBuilder struct {
 	memAddrOffset                  uint64
 	mmu                            *mmu.MMU
 	numMemoryBank                  int
-	dramSize                       uint64
+	memorySize                     uint64
 	log2PageSize                   uint64
 	log2CacheLineSize              uint64
 	log2MemoryBankInterleavingSize uint64
@@ -64,7 +64,7 @@ func MakeWaferScaleGPUBuilder() WaferScaleGPUBuilder {
 		log2CacheLineSize:              6,
 		log2PageSize:                   12,
 		log2MemoryBankInterleavingSize: 12,
-		dramSize:                       4 * mem.GB,
+		memorySize:                     4 * mem.GB,
 	}
 	return b
 }
@@ -163,9 +163,9 @@ func (b WaferScaleGPUBuilder) WithMonitor(
 	return b
 }
 
-// WithDRAMSize sets the size of DRAMs in the GPU.
-func (b WaferScaleGPUBuilder) WithDRAMSize(size uint64) WaferScaleGPUBuilder {
-	b.dramSize = size
+// WithDRAMSize sets the sum size of all SRAMs in the GPU.
+func (b WaferScaleGPUBuilder) WithMemorySize(s uint64) WaferScaleGPUBuilder {
+	b.memorySize = s
 	return b
 }
 
@@ -230,12 +230,10 @@ func (b *WaferScaleGPUBuilder) connectPeriphComponents() {
 	b.periphConn.PlugIn(b.cp.ToRDMA, 4)
 	b.periphConn.PlugIn(b.cp.ToPMC, 4)
 
-	/* CP <-> Mesh(CUs, TLBs, Caches, ATs, ROBs) */
-	/* attention: DMA must connect to mesh, otherwise errors would occur when
-	CP try to access control ports of caches */
+	/* CP <-> Mesh(CUs, TLBs, ATs, ROBs) */
 	b.ToMesh = append(b.ToMesh, b.cp.ToCUs)
 	b.ToMesh = append(b.ToMesh, b.cp.ToTLBs)
-	b.ToMesh = append(b.ToMesh, b.cp.ToCaches)
+	// b.ToMesh = append(b.ToMesh, b.cp.ToCaches)
 	b.ToMesh = append(b.ToMesh, b.cp.ToAddressTranslators)
 
 	/* RDMA(Control) <-> CP */
@@ -243,13 +241,13 @@ func (b *WaferScaleGPUBuilder) connectPeriphComponents() {
 	b.periphConn.PlugIn(b.cp.RDMA, 1)
 
 	/* DMA(Control) <-> Mesh(CP.ToDMA) */
-	/* DMA(ToMem) <-> Mesh(DRAMs) */
+	/* DMA(ToMem) <-> Mesh(SRAMs) */
 	b.cp.DMAEngine = b.dmaEngine.ToCP
 	b.connectWithDirectConnection(b.cp.ToDMA, b.dmaEngine.ToCP, 128)
 	b.ToMesh = append(b.ToMesh, b.dmaEngine.ToMem)
 
 	/* PMC(Control) <-> CP */
-	/* PMC(LocalMem) <-> Mesh(DRAM) */
+	/* PMC(LocalMem) <-> Mesh(SRAM) */
 	pmcControlPort := b.pageMigrationController.GetPortByName("Control")
 	b.cp.PMC = pmcControlPort
 	b.periphConn.PlugIn(pmcControlPort, 1)
@@ -277,7 +275,6 @@ func (b *WaferScaleGPUBuilder) buildMesh(name string) {
 		WithMemAddrOffset(b.memAddrOffset).
 		withLog2CachelineSize(b.log2CacheLineSize).
 		withLog2PageSize(b.log2PageSize).
-		WithDRAMSize(b.dramSize).
 		withVisTracer(b.visTracer).
 		withMemTracer(b.memTracer).
 		withMonitor(b.monitor).
@@ -361,7 +358,7 @@ func (b *WaferScaleGPUBuilder) buildL2TLB() {
 		WithEngine(b.engine).
 		WithFreq(b.freq).
 		WithNumWays(numWays).
-		WithNumSets(int(b.dramSize / (1 << b.log2PageSize) / uint64(numWays))).
+		WithNumSets(int(b.memorySize / (1 << b.log2PageSize) / uint64(numWays))).
 		WithNumMSHREntry(64).
 		WithNumReqPerCycle(1024).
 		WithPageSize(1 << b.log2PageSize).
@@ -379,7 +376,7 @@ func (b *WaferScaleGPUBuilder) buildL2TLB() {
 	}
 }
 
-func (b *WaferScaleGPUBuilder) numCU() int {
+func (b *WaferScaleGPUBuilder) NumCU() int {
 	return b.tileHeight * b.tileWidth
 }
 

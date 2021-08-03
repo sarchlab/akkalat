@@ -6,11 +6,10 @@ import (
 	"os"
 
 	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mem/v2/dram"
+	"gitlab.com/akita/mem/v2/idealmemcontroller"
 	"gitlab.com/akita/mem/v2/mem"
 	"gitlab.com/akita/mem/v2/vm/addresstranslator"
 	"gitlab.com/akita/mem/v2/vm/tlb"
-	"gitlab.com/akita/mgpusim/v2/emu"
 	"gitlab.com/akita/mgpusim/v2/timing/cu"
 	"gitlab.com/akita/mgpusim/v2/timing/rob"
 	"gitlab.com/akita/util/v2/tracing"
@@ -31,8 +30,7 @@ type tile struct {
 	l1sTLB *tlb.TLB
 	l1iTLB *tlb.TLB
 
-	// mem *idealmemcontroller.Comp
-	mem *dram.MemController
+	mem *idealmemcontroller.Comp
 }
 
 type tileBuilder struct {
@@ -43,12 +41,12 @@ type tileBuilder struct {
 	freq              sim.Freq
 	log2CacheLineSize uint64
 	log2PageSize      uint64
+	memLatency        int
 
-	isaDebugging bool
-	visTracer    tracing.Tracer
-	memTracer    tracing.Tracer
-
-	dramBuilder dram.Builder
+	isaDebugging  bool
+	visTracer     tracing.Tracer
+	memTracer     tracing.Tracer
+	globalStorage *mem.Storage
 }
 
 func makeTileBuilder() tileBuilder {
@@ -91,11 +89,6 @@ func (b tileBuilder) withLog2PageSize(
 	return b
 }
 
-// func (b tileBuilder) withMemoryCapacity(cap uint64) tileBuilder {
-// 	b.memCapacity = cap
-// 	return b
-// }
-
 func (b tileBuilder) withIsaDebugging() tileBuilder {
 	b.isaDebugging = true
 	return b
@@ -115,8 +108,8 @@ func (b tileBuilder) withMemTracer(
 	return b
 }
 
-func (b tileBuilder) withDRAMBuilder(builder dram.Builder) tileBuilder {
-	b.dramBuilder = builder
+func (b tileBuilder) WithGlobalStorage(storage *mem.Storage) tileBuilder {
+	b.globalStorage = storage
 	return b
 }
 
@@ -158,7 +151,6 @@ func (b *tileBuilder) connectVectorMem(t *tile) {
 	rob := t.l1vROB
 	at := t.l1vAT
 	tlb := t.l1vTLB
-	// memv := t.mem
 
 	cu.VectorMemModules = &mem.SingleLowModuleFinder{
 		LowModule: rob.GetPortByName("Top"),
@@ -235,8 +227,8 @@ func (b *tileBuilder) buildCU(t *tile) {
 		WithLog2CachelineSize(b.log2CacheLineSize)
 
 	cuName := fmt.Sprintf("%s.CU", b.name)
-	cu := cuBuilder.Build(cuName)
-	t.cu = cu
+	computeUnit := cuBuilder.Build(cuName)
+	t.cu = computeUnit
 
 	if b.isaDebugging {
 		isaDebug, err := os.Create(
@@ -244,21 +236,22 @@ func (b *tileBuilder) buildCU(t *tile) {
 		if err != nil {
 			log.Fatal(err.Error())
 		}
-		isaDebugger := emu.NewISADebugger(log.New(isaDebug, "", 0))
-		cu.AcceptHook(isaDebugger)
+		isaDebugger := cu.NewISADebugger(
+			log.New(isaDebug, "", 0), computeUnit)
+
+		tracing.CollectTrace(computeUnit, isaDebugger)
 	}
 
 	if b.visTracer != nil {
-		tracing.CollectTrace(cu, b.visTracer)
+		tracing.CollectTrace(computeUnit, b.visTracer)
 	}
 }
 
 func (b *tileBuilder) buildMemory(t *tile) {
-	memName := fmt.Sprintf("%s.DRAM", b.name)
-	// t.mem = idealmemcontroller.New(memName, b.engine, b.memCapacity)
-	// t.mem.Latency = b.memLatency
-
-	t.mem = b.dramBuilder.Build(memName)
+	memName := fmt.Sprintf("%s.SRAM", b.name)
+	t.mem = idealmemcontroller.New(memName, b.engine, 1)
+	t.mem.Latency = b.memLatency
+	t.mem.Storage = b.globalStorage
 }
 
 func (b *tileBuilder) buildL1VReorderBuffers(t *tile) {
