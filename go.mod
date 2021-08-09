@@ -9,6 +9,6 @@ require (
 	gitlab.com/akita/util/v2 v2.0.0
 )
 
-//replace github.com/sarchlab/akkalab/fir => ../fir
+//replace "gitlab.com/akita/mgpusim/v2/samples/runner" => ../mgpu_config
 
 go 1.16

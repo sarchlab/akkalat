@@ -160,10 +160,12 @@ func (r *Runner) ParseFlag() *Runner {
 	}
 
 	if *rdmaTransactionCountReportFlag {
+		r.Timing = true // added due to rdma dependency on -timing
 		r.ReportRDMATransactionCount = true
 	}
 
 	if *reportAll {
+		r.Timing = true // added due to rdma dependency on -timing
 		r.ReportInstCount = true
 		r.ReportCacheLatency = true
 		r.ReportCacheHitRate = true
@@ -202,11 +204,9 @@ func (r *Runner) Init() *Runner {
 
 	if r.Timing {
 		r.buildTimingPlatform()
-	}
-	/* else {
+	} else {
 		r.buildEmuPlatform()
 	}
-	*/
 
 	r.createUnifiedGPUs()
 
@@ -228,7 +228,6 @@ func (r *Runner) defineMetrics() {
 	atexit.Register(func() { r.reportStats() })
 }
 
-/*
 func (r *Runner) buildEmuPlatform() {
 	b := MakeEmuBuilder().
 		WithNumGPU(r.GPUIDs[len(r.GPUIDs)-1])
@@ -251,7 +250,6 @@ func (r *Runner) buildEmuPlatform() {
 
 	r.platform = b.Build()
 }
-*/
 
 func (r *Runner) buildTimingPlatform() {
 	b := MakeR9NanoBuilder().
@@ -443,11 +441,8 @@ func (r *Runner) addRDMAEngineTracer() {
 
 				isFromOutside := strings.Contains(
 					task.Detail.(sim.Msg).Meta().Src.Name(), "RDMA")
-				if !isFromOutside {
-					return false
-				}
 
-				return true
+				return isFromOutside
 			})
 		t.outgoingTracer = tracing.NewAverageTimeTracer(
 			func(task tracing.Task) bool {
@@ -457,11 +452,8 @@ func (r *Runner) addRDMAEngineTracer() {
 
 				isFromOutside := strings.Contains(
 					task.Detail.(sim.Msg).Meta().Src.Name(), "RDMA")
-				if isFromOutside {
-					return false
-				}
 
-				return true
+				return !isFromOutside
 			})
 
 		tracing.CollectTrace(t.rdmaEngine, t.incomingTracer)

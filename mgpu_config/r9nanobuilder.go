@@ -42,37 +42,37 @@ type R9NanoGPUBuilder struct {
 	memTracer          tracing.Tracer
 	monitor            *monitoring.Monitor
 
-	gpuName                 string
-	gpu                     *GPU
-	gpuID                   uint64
-	cp                      *cp.CommandProcessor
-	cus                     []*cu.ComputeUnit
-	l1vReorderBuffers       []*rob.ReorderBuffer
-	l1iReorderBuffers       []*rob.ReorderBuffer
-	l1sReorderBuffers       []*rob.ReorderBuffer
-	l1vCaches               []*writearound.Cache
-	l1sCaches               []*l1v.Cache
-	l1iCaches               []*l1v.Cache
-	l2Caches                []*writeback.Cache
-	l1vAddrTrans            []*addresstranslator.AddressTranslator
-	l1sAddrTrans            []*addresstranslator.AddressTranslator
-	l1iAddrTrans            []*addresstranslator.AddressTranslator
-	l1vTLBs                 []*tlb.TLB
-	l1sTLBs                 []*tlb.TLB
-	l1iTLBs                 []*tlb.TLB
-	l2TLBs                  []*tlb.TLB
-	drams                   []*dram.MemController
-	lowModuleFinderForL1    *mem.InterleavedLowModuleFinder
-	lowModuleFinderForL2    *mem.InterleavedLowModuleFinder
+	gpuName              string
+	gpu                  *GPU
+	gpuID                uint64
+	cp                   *cp.CommandProcessor
+	cus                  []*cu.ComputeUnit
+	l1vReorderBuffers    []*rob.ReorderBuffer
+	l1iReorderBuffers    []*rob.ReorderBuffer
+	l1sReorderBuffers    []*rob.ReorderBuffer
+	l1vCaches            []*writearound.Cache
+	l1sCaches            []*l1v.Cache
+	l1iCaches            []*l1v.Cache
+	l2Caches             []*writeback.Cache
+	l1vAddrTrans         []*addresstranslator.AddressTranslator
+	l1sAddrTrans         []*addresstranslator.AddressTranslator
+	l1iAddrTrans         []*addresstranslator.AddressTranslator
+	l1vTLBs              []*tlb.TLB
+	l1sTLBs              []*tlb.TLB
+	l1iTLBs              []*tlb.TLB
+	l2TLBs               []*tlb.TLB
+	drams                []*dram.MemController
+	lowModuleFinderForL1 *mem.InterleavedLowModuleFinder
+	//lowModuleFinderForL2    *mem.InterleavedLowModuleFinder
 	lowModuleFinderForPMC   *mem.InterleavedLowModuleFinder
 	dmaEngine               *cp.DMAEngine
 	rdmaEngine              *rdma.Engine
 	pageMigrationController *pagemigrationcontroller.PageMigrationController
 
-	internalConn           *sim.DirectConnection
-	l1TLBToL2TLBConnection *sim.DirectConnection
-	l1ToL2Connection       *sim.DirectConnection
-	l2ToDramConnection     *sim.DirectConnection
+	internalConn *sim.DirectConnection
+	//l1TLBToL2TLBConnection *sim.DirectConnection
+	//l1ToL2Connection       *sim.DirectConnection
+	l2ToDramConnection *sim.DirectConnection
 }
 
 // MakeR9NanoGPUBuilder provides a GPU builder that can builds the R9Nano GPU.
