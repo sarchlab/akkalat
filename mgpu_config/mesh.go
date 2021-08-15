@@ -102,15 +102,6 @@ func (b R9NanoPlatformBuilder) createMeshConnection(
 			mmuComponent.GetPortByName("Migration"),
 			mmuComponent.GetPortByName("Top"),
 		})
-	/*
-		rootComplexID := meshConnector.AddRootComplex(
-			[]sim.Port{
-				gpuDriver.GetPortByName("GPU"),
-				gpuDriver.GetPortByName("MMU"),
-				mmuComponent.GetPortByName("Migration"),
-				mmuComponent.GetPortByName("Top"),
-			})
-	*/
 	return meshConnector
 }
 
