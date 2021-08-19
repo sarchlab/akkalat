@@ -248,7 +248,9 @@ func (b *meshBuilder) buildTiles(m *mesh) {
 
 	for x := 0; x < b.tileHeight; x++ {
 		for y := 0; y < b.tileWidth; y++ {
-			name := fmt.Sprintf("%s.Tile_[%02d,%02d]", b.name, x, y)
+			// We could not use Tile_[x,y] here, because the comma is recognized as
+			// a column separator in CSV format.
+			name := fmt.Sprintf("%s.Tile_[%02d][%02d]", b.name, x, y)
 			t := tileBuilder.Build(name)
 			m.tiles = append(m.tiles, &t)
 		}
