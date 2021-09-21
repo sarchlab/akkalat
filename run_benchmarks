@@ -1,0 +1,9 @@
+#!/bin/tcsh
+#PBS -l nodes=1:c11a:ppn=4
+#PBS -l walltime=3:00:00
+#PBS -N benchmarks
+#PBS -j oe
+#PBS -m ae
+#PBS -M dcthames@email.wm.edu
+cd akkalat
+./bitonicsort/bitonicsort -mesh=25,25 -length=120000 -report-all -metric-file-name ./metrics/bitonicsort_25x25
