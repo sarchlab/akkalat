@@ -92,7 +92,7 @@ func (b R9NanoPlatformBuilder) createMeshConnection(
 	// connection.SrcBufferCapacity = 40960000
 	meshConnector := mesh.NewConnector().
 		WithEngine(engine).
-		WithSwitchLatency(20)
+		WithSwitchLatency(2) // Set to 2 ns for Lightmatter results
 	meshConnector.CreateNetwork("Mesh")
 
 	meshConnector.AddTile([3]int{0, 0, 0},
@@ -114,7 +114,7 @@ func (b *R9NanoPlatformBuilder) createMeshGPUBuilder(
 		WithEngine(engine).
 		WithMMU(mmuComponent).
 		WithNumCUPerShaderArray(4).
-		WithNumShaderArray(1).
+		WithNumShaderArray(8).
 		WithNumMemoryBank(1).
 		WithLog2MemoryBankInterleavingSize(7).
 		WithLog2PageSize(b.log2PageSize)
