@@ -1,8 +1,7 @@
 import subprocess
 import os
 from multiprocessing.pool import ThreadPool
-
-from sympy import EX
+import time
 
 exps = [
     ("model1", "aes"),
@@ -38,6 +37,8 @@ def run_exp(exp):
 
     out_file = open(out_file_name, "w")
     out_file.write(f'Executing {cmd}\n')
+    start_time = time.Now()
+    out_file.write(f'Start time: {start_time}\n')
     out_file.flush()
 
     process = subprocess.Popen(
@@ -48,6 +49,9 @@ def run_exp(exp):
         print("Error executing ", cmd)
     else:
         print("Executed ", cmd)
+
+    end_time = time.Now()
+    out_file.write(f'End time: {end_time}\n')
 
     out_file.close()
 
