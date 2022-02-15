@@ -1,7 +1,7 @@
 import subprocess
 import os
 from multiprocessing.pool import ThreadPool
-import time
+from datetime import datetime
 
 exps = [
     ("model1", "aes"),
@@ -48,32 +48,38 @@ exps = [
 
 
 def run_exp(exp):
-    cwd = os.getcwd()
-    metic_file_name = f'{exp[0]}_{exp[1]}_metrics'
-    cmd = f'{cwd}/{exp[0]}/{exp[0]} -timing -magic-memory-copy -benchmark={exp[1]} -metric-file-name={metic_file_name}'
-    print(cmd)
+    try:
+        cwd = os.getcwd()
+        metic_file_name = f'{exp[0]}_{exp[1]}_metrics'
+        cmd = f'{cwd}/{exp[0]}/{exp[0]} -benchmark={exp[1]} -timing -magic-memory-copy --report-all -metric-file-name={metic_file_name}'
+        print(cmd)
 
-    out_file_name = f'{cwd}/{exp[0]}_{exp[1]}_out.stdout'
+        out_file_name = f'{cwd}/{exp[0]}_{exp[1]}_out.stdout'
 
-    out_file = open(out_file_name, "w")
-    out_file.write(f'Executing {cmd}\n')
-    start_time = time.Now()
-    out_file.write(f'Start time: {start_time}\n')
-    out_file.flush()
+        out_file = open(out_file_name, "w")
+        out_file.write(f'Executing {cmd}\n')
+        start_time = datetime.now()
+        out_file.write(f'Start time: {start_time}\n')
+        out_file.flush()
 
-    process = subprocess.Popen(
-        cmd, shell=True, stdout=out_file, stderr=out_file, cwd=cwd)
-    process.wait()
+        process = subprocess.Popen(
+            cmd, shell=True, stdout=out_file, stderr=out_file, cwd=cwd)
+        process.wait()
 
-    if process.returncode != 0:
-        print("Error executing ", cmd)
-    else:
-        print("Executed ", cmd)
+        if process.returncode != 0:
+            print("Error executing ", cmd)
+        else:
+            print("Executed ", cmd)
 
-    end_time = time.Now()
-    out_file.write(f'End time: {end_time}\n')
+        end_time = datetime.now()
+        out_file.write(f'End time: {end_time}\n')
 
-    out_file.close()
+        elapsed_time = end_time - start_time
+        out_file.write(f'Elapsed time: {elapsed_time}\n')
+
+        out_file.close()
+    except Exception as e:
+        print(e)
 
 
 def main():
