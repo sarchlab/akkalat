@@ -53,7 +53,9 @@ def run_exp(exp):
 
 
 def main():
-    subprocess.run(["go", "build", "./..."])
+    cwd = os.getcwd()
+    process = subprocess.Popen("cd model1 && go build", shell=True, cwd=cwd)
+    process.wait()
 
     tp = ThreadPool()
     for exp in exps:
