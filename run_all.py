@@ -66,16 +66,16 @@ def run_exp(exp):
             cmd, shell=True, stdout=out_file, stderr=out_file, cwd=cwd)
         process.wait()
 
-        if process.returncode != 0:
-            print("Error executing ", cmd)
-        else:
-            print("Executed ", cmd)
-
         end_time = datetime.now()
         out_file.write(f'End time: {end_time}\n')
 
         elapsed_time = end_time - start_time
         out_file.write(f'Elapsed time: {elapsed_time}\n')
+
+        if process.returncode != 0:
+            print("Error executing ", cmd)
+        else:
+            print("Executed ", cmd, ", time ", elapsed_time)
 
         out_file.close()
     except Exception as e:
