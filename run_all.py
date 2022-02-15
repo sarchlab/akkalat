@@ -24,6 +24,26 @@ exps = [
     ("model1", "simpleconvolution"),
     ("model1", "spmv"),
     ("model1", "stencil2d"),
+    ("model2", "aes"),
+    ("model2", "atax"),
+    ("model2", "bicg"),
+    ("model2", "bitonicsort"),
+    ("model2", "conv2d"),
+    ("model2", "fastwalshtransform"),
+    ("model2", "fir"),
+    ("model2", "fft"),
+    ("model2", "floydwarshall"),
+    ("model2", "im2col"),
+    ("model2", "kmeans"),
+    ("model2", "matrixmultiplication"),
+    ("model2", "matrixtranspose"),
+    ("model2", "nbody"),
+    ("model2", "nw"),
+    ("model2", "pagerank"),
+    ("model2", "relu"),
+    ("model2", "simpleconvolution"),
+    ("model2", "spmv"),
+    ("model2", "stencil2d"),
 ]
 
 
@@ -58,7 +78,11 @@ def run_exp(exp):
 
 def main():
     cwd = os.getcwd()
+
     process = subprocess.Popen("cd model1 && go build", shell=True, cwd=cwd)
+    process.wait()
+
+    process = subprocess.Popen("cd model2 && go build", shell=True, cwd=cwd)
     process.wait()
 
     tp = ThreadPool()
