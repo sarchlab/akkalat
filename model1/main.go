@@ -63,6 +63,10 @@ func main() {
 		conv2d.KernelChannel = 6
 		conv2d.KernelHeight = 3
 		conv2d.KernelWidth = 3
+		conv2d.PadX = 1
+		conv2d.PadY = 1
+		conv2d.StrideX = 1
+		conv2d.StrideY = 1
 		benchmark = conv2d
 	case "fastwalshtransform":
 		fastwalshtransform := fastwalshtransform.NewBenchmark(runner.Driver())
