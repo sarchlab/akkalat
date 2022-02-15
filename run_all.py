@@ -31,7 +31,7 @@ exps = [
 def run_exp(exp):
     cwd = os.getcwd()
     metic_file_name = f'{exp[0]}_{exp[1]}_metrics'
-    cmd = f'{cwd}/{exp[0]}/{exp[0]} -timing -magic-mem-copy -benchmark={exp[1]} -metric-file-name={metic_file_name}'
+    cmd = f'{cwd}/{exp[0]}/{exp[0]} -timing -magic-memory-copy -benchmark={exp[1]} -metric-file-name={metic_file_name}'
     print(cmd)
 
     out_file_name = f'{cwd}/{exp[0]}_{exp[1]}_out.stdout'

@@ -127,7 +127,7 @@ func main() {
 		pagerank := pagerank.NewBenchmark(runner.Driver())
 		pagerank.NumNodes = 104857600
 		pagerank.NumConnections = 104857600
-		pagerank.NumIterations = 3
+		pagerank.MaxIterations = 3
 		benchmark = pagerank
 	case "relu":
 		relu := relu.NewBenchmark(runner.Driver())
@@ -146,8 +146,8 @@ func main() {
 		benchmark = spmv
 	case "stencil2d":
 		stencil2d := stencil2d.NewBenchmark(runner.Driver())
-		stencil2d.Height = 8192
-		stencil2d.Width = 8192
+		stencil2d.NumRows = 8192
+		stencil2d.NumCols = 8192
 		stencil2d.NumIteration = 3
 		benchmark = stencil2d
 	default:
