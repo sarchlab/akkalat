@@ -62,7 +62,7 @@ func SelectBenchmark(name string, driver *driver.Driver) benchmarks.Benchmark {
 		benchmark = conv2d
 	case "fastwalshtransform":
 		fastwalshtransform := fastwalshtransform.NewBenchmark(driver)
-		fastwalshtransform.Length = 65536
+		fastwalshtransform.Length = 1048576
 		benchmark = fastwalshtransform
 	case "fir":
 		fir := fir.NewBenchmark(driver)
@@ -75,7 +75,7 @@ func SelectBenchmark(name string, driver *driver.Driver) benchmarks.Benchmark {
 		benchmark = fft
 	case "floydwarshall":
 		floydwarshall := floydwarshall.NewBenchmark(driver)
-		floydwarshall.NumNodes = 64
+		floydwarshall.NumNodes = 65536
 		floydwarshall.NumIterations = 3
 		benchmark = floydwarshall
 	case "im2col":
@@ -112,7 +112,7 @@ func SelectBenchmark(name string, driver *driver.Driver) benchmarks.Benchmark {
 		benchmark = matrixtranspose
 	case "nbody":
 		nbody := nbody.NewBenchmark(driver)
-		nbody.NumParticles = 32
+		nbody.NumParticles = 65536
 		nbody.NumIterations = 3
 		benchmark = nbody
 	case "nw":
@@ -121,8 +121,8 @@ func SelectBenchmark(name string, driver *driver.Driver) benchmarks.Benchmark {
 		benchmark = nw
 	case "pagerank":
 		pagerank := pagerank.NewBenchmark(driver)
-		pagerank.NumNodes = 1024
-		pagerank.NumConnections = 1024
+		pagerank.NumNodes = 104857600
+		pagerank.NumConnections = 102400
 		pagerank.MaxIterations = 3
 		benchmark = pagerank
 	case "relu":
