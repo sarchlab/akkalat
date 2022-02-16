@@ -9,6 +9,8 @@ require (
 	gitlab.com/akita/util/v2 v2.1.0
 )
 
-//replace "gitlab.com/akita/mgpusim/v2/samples/runner" => ../mgpu_config
+// replace gitlab.com/akita/mgpusim/v2 => ../mgpusim
+
+// replace gitlab.com/akita/mem/v2 => ../mem
 
 go 1.16

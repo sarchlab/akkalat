@@ -329,9 +329,9 @@ func (b *R9NanoPlatformBuilder) createGPU(
 	pmcAddressTable *mem.BankedLowModuleFinder,
 	connector *mesh.Connector,
 ) *GPU {
-	index := x + y*b.tileWidth + 1
+	index := uint64(len(b.gpus)) + 1
 	name := fmt.Sprintf("GPU_%d_%d", x, y)
-	memAddrOffset := uint64(y*b.tileWidth+x+1) * 4 * mem.GB
+	memAddrOffset := index * 4 * mem.GB
 	gpu := gpuBuilder.
 		WithMemAddrOffset(memAddrOffset).
 		Build(name, uint64(index))

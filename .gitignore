@@ -17,3 +17,5 @@
 
 *.stdout
 .DS_Store
+*.pdf
+*.debug

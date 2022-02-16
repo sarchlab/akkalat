@@ -30,7 +30,7 @@ func SelectBenchmark(name string, driver *driver.Driver) benchmarks.Benchmark {
 	switch name {
 	case "aes":
 		aes := aes.NewBenchmark(driver)
-		aes.Length = 1024
+		aes.Length = 1048576
 		benchmark = aes
 	case "atax":
 		atax := atax.NewBenchmark(driver)
@@ -66,7 +66,7 @@ func SelectBenchmark(name string, driver *driver.Driver) benchmarks.Benchmark {
 		benchmark = fastwalshtransform
 	case "fir":
 		fir := fir.NewBenchmark(driver)
-		fir.Length = 1024
+		fir.Length = 1048576
 		benchmark = fir
 	case "fft":
 		fft := fft.NewBenchmark(driver)
@@ -117,7 +117,7 @@ func SelectBenchmark(name string, driver *driver.Driver) benchmarks.Benchmark {
 		benchmark = nbody
 	case "nw":
 		nw := nw.NewBenchmark(driver)
-		nw.SetLength(32)
+		nw.SetLength(1024)
 		benchmark = nw
 	case "pagerank":
 		pagerank := pagerank.NewBenchmark(driver)
@@ -127,7 +127,7 @@ func SelectBenchmark(name string, driver *driver.Driver) benchmarks.Benchmark {
 		benchmark = pagerank
 	case "relu":
 		relu := relu.NewBenchmark(driver)
-		relu.Length = 1024
+		relu.Length = 1048576
 		benchmark = relu
 	case "simpleconvolution":
 		simpleconvolution := simpleconvolution.NewBenchmark(driver)
