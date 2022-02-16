@@ -75,7 +75,7 @@ func SelectBenchmark(name string, driver *driver.Driver) benchmarks.Benchmark {
 		benchmark = fft
 	case "floydwarshall":
 		floydwarshall := floydwarshall.NewBenchmark(driver)
-		floydwarshall.NumNodes = 1048576
+		floydwarshall.NumNodes = 104857600
 		floydwarshall.NumIterations = 10
 		benchmark = floydwarshall
 	case "im2col":
@@ -112,7 +112,7 @@ func SelectBenchmark(name string, driver *driver.Driver) benchmarks.Benchmark {
 		benchmark = matrixtranspose
 	case "nbody":
 		nbody := nbody.NewBenchmark(driver)
-		nbody.NumParticles = 1048576
+		nbody.NumParticles = 104857600
 		nbody.NumIterations = 10
 		benchmark = nbody
 	case "nw":
