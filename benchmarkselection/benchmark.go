@@ -75,8 +75,8 @@ func SelectBenchmark(name string, driver *driver.Driver) benchmarks.Benchmark {
 		benchmark = fft
 	case "floydwarshall":
 		floydwarshall := floydwarshall.NewBenchmark(driver)
-		floydwarshall.NumNodes = 65536
-		floydwarshall.NumIterations = 3
+		floydwarshall.NumNodes = 1048576
+		floydwarshall.NumIterations = 10
 		benchmark = floydwarshall
 	case "im2col":
 		im2col := im2col.NewBenchmark(driver)
@@ -95,25 +95,25 @@ func SelectBenchmark(name string, driver *driver.Driver) benchmarks.Benchmark {
 		benchmark = im2col
 	case "kmeans":
 		kmeans := kmeans.NewBenchmark(driver)
-		kmeans.NumPoints = 32
+		kmeans.NumPoints = 1048576
 		kmeans.NumClusters = 8
 		kmeans.NumFeatures = 32
 		kmeans.MaxIter = 3
 		benchmark = kmeans
 	case "matrixmultiplication":
 		matrixmultiplication := matrixmultiplication.NewBenchmark(driver)
-		matrixmultiplication.X = 64
-		matrixmultiplication.Y = 64
-		matrixmultiplication.Z = 64
+		matrixmultiplication.X = 1024
+		matrixmultiplication.Y = 1024
+		matrixmultiplication.Z = 1024
 		benchmark = matrixmultiplication
 	case "matrixtranspose":
 		matrixtranspose := matrixtranspose.NewBenchmark(driver)
-		matrixtranspose.Width = 64
+		matrixtranspose.Width = 1024
 		benchmark = matrixtranspose
 	case "nbody":
 		nbody := nbody.NewBenchmark(driver)
-		nbody.NumParticles = 65536
-		nbody.NumIterations = 3
+		nbody.NumParticles = 1048576
+		nbody.NumIterations = 10
 		benchmark = nbody
 	case "nw":
 		nw := nw.NewBenchmark(driver)
