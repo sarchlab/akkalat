@@ -30,25 +30,25 @@ func SelectBenchmark(name string, driver *driver.Driver) benchmarks.Benchmark {
 	switch name {
 	case "aes":
 		aes := aes.NewBenchmark(driver)
-		aes.Length = 1048576
+		aes.Length = 10485760
 		benchmark = aes
 	case "atax":
 		atax := atax.NewBenchmark(driver)
-		atax.NX = 64
-		atax.NY = 64
+		atax.NX = 4096
+		atax.NY = 4096
 		benchmark = atax
 	case "bicg":
 		bicg := bicg.NewBenchmark(driver)
-		bicg.NX = 64
-		bicg.NY = 64
+		bicg.NX = 4096
+		bicg.NY = 4096
 		benchmark = bicg
 	case "bitonicsort":
 		bitonicsort := bitonicsort.NewBenchmark(driver)
-		bitonicsort.Length = 32
+		bitonicsort.Length = 65536
 		benchmark = bitonicsort
 	case "conv2d":
 		conv2d := conv2d.NewBenchmark(driver)
-		conv2d.N = 1
+		conv2d.N = 64
 		conv2d.C = 3
 		conv2d.H = 256
 		conv2d.W = 256
@@ -62,7 +62,7 @@ func SelectBenchmark(name string, driver *driver.Driver) benchmarks.Benchmark {
 		benchmark = conv2d
 	case "fastwalshtransform":
 		fastwalshtransform := fastwalshtransform.NewBenchmark(driver)
-		fastwalshtransform.Length = 64
+		fastwalshtransform.Length = 65536
 		benchmark = fastwalshtransform
 	case "fir":
 		fir := fir.NewBenchmark(driver)
@@ -70,7 +70,7 @@ func SelectBenchmark(name string, driver *driver.Driver) benchmarks.Benchmark {
 		benchmark = fir
 	case "fft":
 		fft := fft.NewBenchmark(driver)
-		fft.Bytes = 2
+		fft.Bytes = 1024
 		fft.Passes = 2
 		benchmark = fft
 	case "floydwarshall":
@@ -127,23 +127,23 @@ func SelectBenchmark(name string, driver *driver.Driver) benchmarks.Benchmark {
 		benchmark = pagerank
 	case "relu":
 		relu := relu.NewBenchmark(driver)
-		relu.Length = 1048576
+		relu.Length = 104857600
 		benchmark = relu
 	case "simpleconvolution":
 		simpleconvolution := simpleconvolution.NewBenchmark(driver)
-		simpleconvolution.Height = 64
-		simpleconvolution.Width = 64
+		simpleconvolution.Height = 4096
+		simpleconvolution.Width = 4096
 		simpleconvolution.SetMaskSize(3)
 		benchmark = simpleconvolution
 	case "spmv":
 		spmv := spmv.NewBenchmark(driver)
-		spmv.Dim = 256
-		spmv.Sparsity = 0.01
+		spmv.Dim = 104857600
+		spmv.Sparsity = 0.000001
 		benchmark = spmv
 	case "stencil2d":
 		stencil2d := stencil2d.NewBenchmark(driver)
-		stencil2d.NumRows = 64
-		stencil2d.NumCols = 64
+		stencil2d.NumRows = 4096
+		stencil2d.NumCols = 4096
 		stencil2d.NumIteration = 3
 		benchmark = stencil2d
 	default:
