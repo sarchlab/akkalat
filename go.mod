@@ -9,7 +9,9 @@ require (
 	gitlab.com/akita/util/v2 v2.1.0
 )
 
-// replace gitlab.com/akita/mgpusim/v2 => ../mgpusim
+replace gitlab.com/akita/mgpusim/v2 => ../mgpusim
+
+replace gitlab.com/akita/noc/v2 => ../noc
 
 // replace gitlab.com/akita/mem/v2 => ../mem
 

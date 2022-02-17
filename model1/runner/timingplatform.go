@@ -203,8 +203,9 @@ func (b R9NanoPlatformBuilder) createConnection(
 	connector := mesh.NewConnector().
 		WithEngine(engine).
 		WithFreq(1 * sim.GHz).
+		WithFlitSize(16).
 		WithBandwidth(1).
-		WithSwitchLatency(1)
+		WithSwitchLatency(80)
 	connector.CreateNetwork("Mesh")
 	connector.AddTile([3]int{b.tileWidth / 2, b.tileHeight / 2, 0}, []sim.Port{
 		gpuDriver.GetPortByName("GPU"),

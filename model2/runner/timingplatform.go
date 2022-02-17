@@ -203,8 +203,9 @@ func (b R9NanoPlatformBuilder) createConnection(
 ) networkconnector.Connector {
 	connector := networkconnector.MakeConnector().
 		WithEngine(engine).
-		WithDefaultFreq(1 * sim.GHz)
-	connector.NewNetwork("Mesh")
+		WithDefaultFreq(1 * sim.GHz).
+		WithFlitSize(64)
+	connector.NewNetwork("Passage")
 
 	b.centralSwitchID = connector.AddSwitch()
 

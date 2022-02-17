@@ -141,6 +141,7 @@ github.com/onsi/ginkgo v1.12.1/go.mod h1:zj2OWP4+oCPe1qIXoGWkgMRwljMUYCdkwsT2108
 github.com/onsi/ginkgo v1.14.2/go.mod h1:iSB4RoI2tjJc9BBv4NKIKWKya62Rps+oPG/Lv9klQyY=
 github.com/onsi/ginkgo v1.15.0/go.mod h1:hF8qUzuuC8DJGygJH3726JnCZX4MYbRB8yFfISqnKUg=
 github.com/onsi/ginkgo v1.15.1/go.mod h1:Dd6YFfwBW84ETqqtL0CPyPXillHgY6XhQH3uuCCTr/o=
+github.com/onsi/ginkgo v1.16.2/go.mod h1:CObGmKUOKaSC0RjmoAK7tKyn4Azo5P2IWuoMnvwxz1E=
 github.com/onsi/ginkgo v1.16.4 h1:29JGrr5oVBm5ulCWet69zQkzWipVXIol6ygQUe/EzNc=
 github.com/onsi/ginkgo v1.16.4/go.mod h1:dX+/inL/fNMqNlz0e9LfyB9TswhZpCVdJM/Z6Vvnwo0=
 github.com/onsi/gomega v1.4.3/go.mod h1:ex+gbHU/CVuBBDIJjb2X0qEXbFg53c61hWP/1CpauHY=
@@ -212,11 +213,6 @@ gitlab.com/akita/dnn v0.5.3/go.mod h1:9bR6UBdBPJc+t8j3mvX187F69LfiYbxtJIj3HhMuql
 gitlab.com/akita/mem/v2 v2.3.1/go.mod h1:HyRpOOEL7WbtPar0YuoQ0kTI5za7s0pTsUpqFCCp0jY=
 gitlab.com/akita/mem/v2 v2.4.0 h1:QVoiqWTJjZjVykmenRnm9Qx64th38lszS3/tOH+p3L8=
 gitlab.com/akita/mem/v2 v2.4.0/go.mod h1:HyRpOOEL7WbtPar0YuoQ0kTI5za7s0pTsUpqFCCp0jY=
-gitlab.com/akita/mgpusim/v2 v2.0.1 h1:qGJI52QyQD5r+lsgFbx3AaWHK7M/K9ZnPL8o7LpSPBg=
-gitlab.com/akita/mgpusim/v2 v2.0.1/go.mod h1:2AGGVKMzKn1A2oTMHYocP4Zwj11P4RkBHgJPQ+EYeL4=
-gitlab.com/akita/noc/v2 v2.0.0/go.mod h1:x/I6lTz9MSvtzjpy8XMrfBXxhMLgXqpAqGhqRDJGLpI=
-gitlab.com/akita/noc/v2 v2.0.2 h1:VE82fAIyeFe8bPy6VY8OeJshJNWdDp4tpV+k2UYOv0A=
-gitlab.com/akita/noc/v2 v2.0.2/go.mod h1:x/I6lTz9MSvtzjpy8XMrfBXxhMLgXqpAqGhqRDJGLpI=
 gitlab.com/akita/util/v2 v2.0.0-alpha.3/go.mod h1:kM8RtFoma4LqfdVwKs2JP7zIzhrBaMwAS+9UEEmy1co=
 gitlab.com/akita/util/v2 v2.0.1/go.mod h1:kM8RtFoma4LqfdVwKs2JP7zIzhrBaMwAS+9UEEmy1co=
 gitlab.com/akita/util/v2 v2.1.0 h1:FfK12I5J7/nlCUOFo+kZBlOekz8TPInWGG1IFaFSSXk=
@@ -310,11 +306,12 @@ golang.org/x/sys v0.0.0-20200519105757-fe76b779f299/go.mod h1:h1NjWce9XRLGQEsW7w
 golang.org/x/sys v0.0.0-20200930185726-fdedc70b468f/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20201119102817-f84b799fce68/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20210112080510-489259a85091/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
-golang.org/x/sys v0.0.0-20210124154548-22da62e12c0c/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+golang.org/x/sys v0.0.0-20210119212857-b64e53b001e4/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20210304124612-50617c2ba197/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20210313110737-8e9fff1a3a18/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20210330210617-4fbd30eecc44/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
 golang.org/x/sys v0.0.0-20210423082822-04245dca01da/go.mod h1:h1NjWce9XRLGQEsW7wpKNCjG9DtNlClVuFLEZdDNbEs=
+golang.org/x/sys v0.0.0-20210503173754-0981d6026fa6/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c h1:F1jZWGFhYfh0Ci55sIpILtKKK8p3i2/krTr0H1rg74I=
 golang.org/x/sys v0.0.0-20210630005230-0f9fa26af87c/go.mod h1:oPkhp1MJrh7nUepCBck5+mAzfO9JrbApNNgaTdGDITg=
 golang.org/x/term v0.0.0-20201117132131-f5c789dd3221/go.mod h1:Nr5EML6q2oocZ2LXRh80K7BxOlk5/8JxuGnuhpl+muw=
@@ -343,6 +340,7 @@ golang.org/x/tools v0.0.0-20190610165438-e9a20a139658/go.mod h1:/rFqwRUd4F7ZHNgw
 golang.org/x/tools v0.0.0-20190927191325-030b2cf1153e/go.mod h1:b+2E5dAYhXwXZwtnZ6UAqBI28+e2cm9otk0dWdXHAEo=
 golang.org/x/tools v0.0.0-20191119224855-298f0cb1881e/go.mod h1:b+2E5dAYhXwXZwtnZ6UAqBI28+e2cm9otk0dWdXHAEo=
 golang.org/x/tools v0.0.0-20201224043029-2b0845dc783e/go.mod h1:emZCQorbCU4vsT4fOWvOPXz4eW1wZW4PmDk9uLelYpA=
+golang.org/x/tools v0.1.0/go.mod h1:xkSsbof2nBLbhDlRMhhhyNLN/zl3eTqcnHD5viDpcZ0=
 golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 golang.org/x/xerrors v0.0.0-20191011141410-1b5146add898/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 golang.org/x/xerrors v0.0.0-20191204190536-9bdfabe68543/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
