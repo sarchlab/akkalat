@@ -9,7 +9,7 @@
 			"type": "go",
 			"request": "launch",
 			"mode": "auto",
-			"program": "${workspaceFolder}/model1",
+			"program": "${workspaceFolder}/model3",
 			"args": [
 				"-timing",
 				"-magic-memory-copy",
