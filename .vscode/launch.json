@@ -5,7 +5,7 @@
 	"version": "0.2.0",
 	"configurations": [
 		{
-			"name": "FloydWarshall",
+			"name": "FIR",
 			"type": "go",
 			"request": "launch",
 			"mode": "auto",
@@ -13,7 +13,7 @@
 			"args": [
 				"-timing",
 				"-magic-memory-copy",
-				"-benchmark=floydwarshall",
+				"-benchmark=fir",
 				"-report-all",
 			]
 		},

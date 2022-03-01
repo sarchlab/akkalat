@@ -339,30 +339,39 @@ func (b *R9NanoPlatformBuilder) createGPU(
 ) *GPU {
 	index := uint64(len(b.gpus)) + 1
 	name := fmt.Sprintf("GPU_%d_%d", x, y)
-	memToCreate := 4 * mem.GB
+	var memToCreate uint64
+	var numShaderArray int
+	var numMemoryBank int
+	numCUPerShaderArray := 4
 
 	if b.isGPUTile(x, y) {
 		memToCreate = 0
-		gpuBuilder = gpuBuilder.
-			WithNumShaderArray(12).
-			WithDRAMSize(memToCreate)
+		numMemoryBank = 0
+		numShaderArray = 12
 	} else {
-		gpuBuilder = gpuBuilder.
-			WithNumShaderArray(0).
-			WithDRAMSize(memToCreate)
+		numShaderArray = 0
+		memToCreate = 4 * mem.GB
+		numMemoryBank = 16
 	}
 
 	gpuBuilder = gpuBuilder.
-		WithMemAddrOffset(b.memCreated)
+		WithMemAddrOffset(b.memCreated).
+		WithNumCUPerShaderArray(numCUPerShaderArray).
+		WithNumShaderArray(numShaderArray).
+		WithDRAMSize(memToCreate).
+		WithNumMemoryBank(numMemoryBank)
 	gpu := gpuBuilder.Build(name, uint64(index))
 	gpuDriver.RegisterGPU(
 		gpu.Domain.GetPortByName("CommandProcessor"),
-		memToCreate,
+		driver.DeviceProperties{
+			CUCount:  numShaderArray * numCUPerShaderArray,
+			DRAMSize: memToCreate,
+		},
 	)
 	b.memCreated += memToCreate
 	gpu.CommandProcessor.Driver = gpuDriver.GetPortByName("GPU")
 
-	b.configRDMAEngine(gpu, rdmaAddressTable)
+	b.configRDMAEngine(gpu, rdmaAddressTable, memToCreate > 0)
 	b.configPMC(gpu, gpuDriver, pmcAddressTable)
 
 	connector.AddTile([3]int{x, y, 0}, gpu.Domain.Ports())
@@ -387,11 +396,15 @@ func (b *R9NanoPlatformBuilder) isGPUTile(x, y int) bool {
 func (b *R9NanoPlatformBuilder) configRDMAEngine(
 	gpu *GPU,
 	addrTable *mem.BankedLowModuleFinder,
+	isMemProvider bool,
 ) {
 	gpu.RDMAEngine.RemoteRDMAAddressTable = addrTable
-	addrTable.LowModules = append(
-		addrTable.LowModules,
-		gpu.RDMAEngine.ToOutside)
+
+	if isMemProvider {
+		addrTable.LowModules = append(
+			addrTable.LowModules,
+			gpu.RDMAEngine.ToOutside)
+	}
 }
 
 func (b *R9NanoPlatformBuilder) configPMC(

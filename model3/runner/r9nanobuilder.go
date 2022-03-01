@@ -36,6 +36,7 @@ type R9NanoGPUBuilder struct {
 	log2PageSize                   uint64
 	log2CacheLineSize              uint64
 	log2MemoryBankInterleavingSize uint64
+	l2TLBCoverage                  uint64
 
 	enableISADebugging bool
 	enableMemTracing   bool
@@ -90,6 +91,7 @@ func MakeR9NanoGPUBuilder() R9NanoGPUBuilder {
 		log2MemoryBankInterleavingSize: 12,
 		l2CacheSize:                    2 * mem.MB,
 		dramSize:                       4 * mem.GB,
+		l2TLBCoverage:                  4 * mem.GB,
 	}
 	return b
 }
@@ -289,7 +291,7 @@ func (b *R9NanoGPUBuilder) connectL1ToL2() {
 	lowModuleFinder.ModuleForOtherAddresses = b.rdmaEngine.ToL1
 	lowModuleFinder.UseAddressSpaceLimitation = true
 	lowModuleFinder.LowAddress = b.memAddrOffset
-	lowModuleFinder.HighAddress = b.memAddrOffset + 4*mem.GB
+	lowModuleFinder.HighAddress = b.memAddrOffset + b.dramSize
 
 	l1ToL2Conn := sim.NewDirectConnection(b.gpuName+".L1-L2",
 		b.engine, b.freq)
@@ -499,6 +501,10 @@ func (b *R9NanoGPUBuilder) buildSAs() {
 }
 
 func (b *R9NanoGPUBuilder) buildL2Caches() {
+	if b.numMemoryBank == 0 {
+		return
+	}
+
 	byteSize := b.l2CacheSize / uint64(b.numMemoryBank)
 	l2Builder := writeback.MakeBuilder().
 		WithEngine(b.engine).
@@ -534,6 +540,10 @@ func (b *R9NanoGPUBuilder) buildL2Caches() {
 }
 
 func (b *R9NanoGPUBuilder) buildDRAMControllers() {
+	if b.numMemoryBank == 0 {
+		return
+	}
+
 	memCtrlBuilder := b.createDramControllerBuilder()
 
 	for i := 0; i < b.numMemoryBank; i++ {
@@ -792,7 +802,9 @@ func (b *R9NanoGPUBuilder) buildL2TLB() {
 		WithEngine(b.engine).
 		WithFreq(b.freq).
 		WithNumWays(numWays).
-		WithNumSets(int(b.dramSize / (1 << b.log2PageSize) / uint64(numWays))).
+		WithNumSets(
+			int(b.l2TLBCoverage / (1 << b.log2PageSize) / uint64(numWays)),
+		).
 		WithNumMSHREntry(64).
 		WithNumReqPerCycle(1024).
 		WithPageSize(1 << b.log2PageSize).

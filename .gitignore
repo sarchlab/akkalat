@@ -19,3 +19,4 @@
 .DS_Store
 *.pdf
 *.debug
+__debug_bin
