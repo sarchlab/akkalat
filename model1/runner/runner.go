@@ -58,6 +58,8 @@ var filenameFlag = flag.String("metric-file-name", "metrics",
 	"Modify the name of the output csv file.")
 var magicMemoryCopy = flag.Bool("magic-memory-copy", false,
 	"Copy data from CPU directly to global memory")
+var switchLatencyFlag = flag.Int("switch-latency", 10,
+	"The latency of the switch")
 
 type verificationPreEnablingBenchmark interface {
 	benchmarks.Benchmark
@@ -256,7 +258,7 @@ func (r *Runner) buildEmuPlatform() {
 }
 
 func (r *Runner) buildTimingPlatform() {
-	b := MakeR9NanoBuilder()
+	b := MakeR9NanoBuilder().WithSwitchLatency(*switchLatencyFlag)
 
 	if r.Parallel {
 		b = b.WithParallelEngine()

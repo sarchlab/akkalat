@@ -119,7 +119,10 @@ func (b EmuBuilder) Build() *Platform {
 			Build(fmt.Sprintf("GPU_%d", i+1))
 
 		cpPort := gpu.Domain.GetPortByName("CommandProcessor")
-		gpuDriver.RegisterGPU(cpPort, 4*mem.GB)
+		gpuDriver.RegisterGPU(cpPort, driver.DeviceProperties{
+			CUCount: 64,
+			DRAMSize: 4*mem.GB,
+		})
 		connection.PlugIn(cpPort, 64)
 
 		b.gpus = append(b.gpus, gpu)

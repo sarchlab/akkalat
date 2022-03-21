@@ -28,6 +28,7 @@ type R9NanoPlatformBuilder struct {
 	tileWidth, tileHeight int
 	useMagicMemoryCopy    bool
 	log2PageSize          uint64
+	switchLatency         int
 
 	monitor *monitoring.Monitor
 
@@ -44,6 +45,7 @@ func MakeR9NanoBuilder() R9NanoPlatformBuilder {
 		log2PageSize:      12,
 		visTraceStartTime: -1,
 		visTraceEndTime:   -1,
+		switchLatency:     10,
 	}
 	return b
 }
@@ -104,6 +106,14 @@ func (b R9NanoPlatformBuilder) WithMonitor(
 // WithMagicMemoryCopy uses global storage as memory components
 func (b R9NanoPlatformBuilder) WithMagicMemoryCopy() R9NanoPlatformBuilder {
 	b.useMagicMemoryCopy = true
+	return b
+}
+
+// WithSwitchLatency sets the switch latency.
+func (b R9NanoPlatformBuilder) WithSwitchLatency(
+	latency int,
+) R9NanoPlatformBuilder {
+	b.switchLatency = latency
 	return b
 }
 
@@ -205,7 +215,7 @@ func (b R9NanoPlatformBuilder) createConnection(
 		WithFreq(1 * sim.GHz).
 		WithFlitSize(16).
 		WithBandwidth(1).
-		WithSwitchLatency(80)
+		WithSwitchLatency(b.switchLatency)
 	connector.CreateNetwork("Mesh")
 	connector.AddTile([3]int{b.tileWidth / 2, b.tileHeight / 2, 0}, []sim.Port{
 		gpuDriver.GetPortByName("GPU"),
@@ -337,7 +347,10 @@ func (b *R9NanoPlatformBuilder) createGPU(
 		WithMemAddrOffset(memAddrOffset).
 		Build(name, uint64(index))
 	gpuDriver.RegisterGPU(gpu.Domain.GetPortByName("CommandProcessor"),
-		4*mem.GB)
+		driver.DeviceProperties{
+			CUCount:  32,
+			DRAMSize: 4 * mem.GB,
+		})
 	gpu.CommandProcessor.Driver = gpuDriver.GetPortByName("GPU")
 
 	b.configRDMAEngine(gpu, rdmaAddressTable)
