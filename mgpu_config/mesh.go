@@ -64,16 +64,21 @@ func (b *R9NanoPlatformBuilder) createMeshGPUs(
 			for x := 0; x < b.meshSize[0]; x++ {
 
 				// Reserving (0,0,0) for the CPU
-				if x != 0 || y != 0 || z != 0 {
+				//if x != 0 || y != 0 || z != 0 {
+				if !(((x == 1) && (y == 1)) ||
+					((x == 3) && (y == 1)) ||
+					((x == 1) && (y == 3)) ||
+					((x == 3) && (y == 3))) {
 
-					i := x + (y * b.meshSize[0]) + (z * b.meshSize[0] * b.meshSize[1])
+					//i := x + (y * b.meshSize[0]) + (z * b.meshSize[0] * b.meshSize[1])
+					i := int(len(b.gpus)) + 1
 
 					element := [3]int{x, y, z}
 					b.createMeshGPU(i, gpuBuilder, gpuDriver,
 						rdmaAddressTable, pmcAddressTable,
 						meshConnector, element)
 
-					//fmt.Println("createMeshGPUs: GPU ", i, element, " GPUs", len(b.gpus))
+					fmt.Println("createMeshGPUs: GPU ", i, element, " GPUs", len(b.gpus))
 					//meshConnector.AddTile([3]int{x, y, z}, b.gpus[i].Domain.Ports())
 					//fmt.Println("createMeshGPUs: GPU ", i, " Ports", b.gpus[i-1].Domain.Ports())
 				}
@@ -95,7 +100,28 @@ func (b R9NanoPlatformBuilder) createMeshConnection(
 		WithSwitchLatency(10) // Set to 10 ns
 	meshConnector.CreateNetwork("Mesh")
 
-	meshConnector.AddTile([3]int{0, 0, 0},
+	meshConnector.AddTile([3]int{1, 1, 0},
+		[]sim.Port{
+			gpuDriver.GetPortByName("GPU"),
+			gpuDriver.GetPortByName("MMU"),
+			mmuComponent.GetPortByName("Migration"),
+			mmuComponent.GetPortByName("Top"),
+		})
+	meshConnector.AddTile([3]int{3, 1, 0},
+		[]sim.Port{
+			gpuDriver.GetPortByName("GPU"),
+			gpuDriver.GetPortByName("MMU"),
+			mmuComponent.GetPortByName("Migration"),
+			mmuComponent.GetPortByName("Top"),
+		})
+	meshConnector.AddTile([3]int{1, 3, 0},
+		[]sim.Port{
+			gpuDriver.GetPortByName("GPU"),
+			gpuDriver.GetPortByName("MMU"),
+			mmuComponent.GetPortByName("Migration"),
+			mmuComponent.GetPortByName("Top"),
+		})
+	meshConnector.AddTile([3]int{3, 3, 0},
 		[]sim.Port{
 			gpuDriver.GetPortByName("GPU"),
 			gpuDriver.GetPortByName("MMU"),

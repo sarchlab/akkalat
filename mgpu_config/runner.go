@@ -525,7 +525,7 @@ func (r *Runner) parseMeshFlag() {
 	}
 
 	// Minus one to account for CPU
-	numGPUs = (r.meshSize[0] * r.meshSize[1] * r.meshSize[2]) - 1
+	numGPUs = (r.meshSize[0] * r.meshSize[1] * r.meshSize[2]) - 4
 
 	if numGPUs > 0 {
 		r.Mesh = true

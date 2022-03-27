@@ -110,7 +110,7 @@ func (b R9NanoPlatformBuilder) WithMesh(mesh bool, n [3]int) R9NanoPlatformBuild
 
 	if mesh {
 		b.meshSize = n
-		b.numGPU = (b.meshSize[0] * b.meshSize[1] * b.meshSize[2]) - 1
+		b.numGPU = (b.meshSize[0] * b.meshSize[1] * b.meshSize[2]) - 4
 	}
 
 	//fmt.Println("WithMesh: Mesh size ", b.meshSize)
