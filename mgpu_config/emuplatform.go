@@ -79,7 +79,7 @@ func (b EmuBuilder) Build() *Platform {
 	pageTable := vm.NewPageTable(b.log2PageSize)
 	gpuDriver := driver.NewDriver(engine, pageTable, b.log2PageSize)
 	connection := sim.NewDirectConnection("ExternalConn", engine, 1*sim.GHz)
-	storage := mem.NewStorage(uint64(b.numGPU+4) * 4 * mem.GB)
+	storage := mem.NewStorage(uint64(b.numGPU+1) * 4 * mem.GB)
 
 	gpuBuilder := MakeEmuGPUBuilder().
 		WithEngine(engine).
