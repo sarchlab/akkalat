@@ -5,19 +5,19 @@ import (
 
 	"gitlab.com/akita/akita/v2/monitoring"
 	"gitlab.com/akita/akita/v2/sim"
+	"gitlab.com/akita/mem/v2/cache/writearound"
 	"gitlab.com/akita/mem/v2/cache/writeback"
+	"gitlab.com/akita/mem/v2/cache/writethrough"
 	"gitlab.com/akita/mem/v2/dram"
 	"gitlab.com/akita/mem/v2/mem"
 	"gitlab.com/akita/mem/v2/vm/addresstranslator"
 	"gitlab.com/akita/mem/v2/vm/mmu"
 	"gitlab.com/akita/mem/v2/vm/tlb"
-	"gitlab.com/akita/mgpusim/v2/pagemigrationcontroller"
-	"gitlab.com/akita/mgpusim/v2/rdma"
-	"gitlab.com/akita/mgpusim/v2/timing/caches/l1v"
-	"gitlab.com/akita/mgpusim/v2/timing/caches/rob"
-	"gitlab.com/akita/mgpusim/v2/timing/caches/writearound"
 	"gitlab.com/akita/mgpusim/v2/timing/cp"
 	"gitlab.com/akita/mgpusim/v2/timing/cu"
+	"gitlab.com/akita/mgpusim/v2/timing/pagemigrationcontroller"
+	"gitlab.com/akita/mgpusim/v2/timing/rdma"
+	"gitlab.com/akita/mgpusim/v2/timing/rob"
 	"gitlab.com/akita/util/v2/tracing"
 )
 
@@ -26,7 +26,7 @@ type R9NanoGPUBuilder struct {
 	engine                         sim.Engine
 	freq                           sim.Freq
 	memAddrOffset                  uint64
-	mmu                            *mmu.MMUImpl
+	mmu                            *mmu.MMU
 	numShaderArray                 int
 	numCUPerShaderArray            int
 	numMemoryBank                  int
@@ -40,7 +40,9 @@ type R9NanoGPUBuilder struct {
 	enableVisTracing   bool
 	visTracer          tracing.Tracer
 	memTracer          tracing.Tracer
+	useMagicMemoryCopy bool
 	monitor            *monitoring.Monitor
+	globalStorage      *mem.Storage
 
 	gpuName              string
 	gpu                  *GPU
@@ -51,8 +53,8 @@ type R9NanoGPUBuilder struct {
 	l1iReorderBuffers    []*rob.ReorderBuffer
 	l1sReorderBuffers    []*rob.ReorderBuffer
 	l1vCaches            []*writearound.Cache
-	l1sCaches            []*l1v.Cache
-	l1iCaches            []*l1v.Cache
+	l1sCaches            []*writethrough.Cache
+	l1iCaches            []*writethrough.Cache
 	l2Caches             []*writeback.Cache
 	l1vAddrTrans         []*addresstranslator.AddressTranslator
 	l1sAddrTrans         []*addresstranslator.AddressTranslator
@@ -112,7 +114,7 @@ func (b R9NanoGPUBuilder) WithMemAddrOffset(
 
 // WithMMU sets the MMU component that provides the address translation service
 // for the GPU.
-func (b R9NanoGPUBuilder) WithMMU(mmu *mmu.MMUImpl) R9NanoGPUBuilder {
+func (b R9NanoGPUBuilder) WithMMU(mmu *mmu.MMU) R9NanoGPUBuilder {
 	b.mmu = mmu
 	return b
 }
@@ -193,6 +195,15 @@ func (b R9NanoGPUBuilder) WithMonitor(m *monitoring.Monitor) R9NanoGPUBuilder {
 // split between memory banks.
 func (b R9NanoGPUBuilder) WithL2CacheSize(size uint64) R9NanoGPUBuilder {
 	b.l2CacheSize = size
+	return b
+}
+
+// WithGlobalStorage lets the GPU to build to use the externally provided
+// storage.
+func (b R9NanoGPUBuilder) WithGlobalStorage(
+	storage *mem.Storage,
+) R9NanoGPUBuilder {
+	b.globalStorage = storage
 	return b
 }
 
@@ -588,6 +599,10 @@ func (b *R9NanoGPUBuilder) createDramControllerBuilder() dram.Builder {
 
 	if b.visTracer != nil {
 		memCtrlBuilder = memCtrlBuilder.WithAdditionalTracer(b.visTracer)
+	}
+
+	if b.globalStorage != nil {
+		memCtrlBuilder = memCtrlBuilder.WithGlobalStorage(b.globalStorage)
 	}
 
 	return memCtrlBuilder

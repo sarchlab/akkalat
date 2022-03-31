@@ -19,7 +19,19 @@ func (b R9NanoPlatformBuilder) Build() *Platform {
 
 	mmuComponent, pageTable := b.createMMU(engine)
 
-	gpuDriver := driver.NewDriver(engine, pageTable, b.log2PageSize)
+	storage := mem.NewStorage(uint64(1+b.numGPU) * 4 * mem.GB)
+
+	gpuDriverBuilder := driver.MakeBuilder()
+	if b.useMagicMemoryCopy {
+		gpuDriverBuilder = gpuDriverBuilder.WithMagicMemoryCopyMiddleware()
+	}
+	gpuDriver := gpuDriverBuilder.
+		WithEngine(engine).
+		WithPageTable(pageTable).
+		WithLog2PageSize(b.log2PageSize).
+		WithGlobalStorage(storage).
+		Build("Driver")
+
 	// file, err := os.Create("driver_comm.csv")
 	// if err != nil {
 	// 	panic(err)
@@ -31,7 +43,7 @@ func (b R9NanoPlatformBuilder) Build() *Platform {
 		b.monitor.RegisterComponent(gpuDriver)
 	}
 
-	gpuBuilder := b.createGPUBuilder(engine, gpuDriver, mmuComponent)
+	gpuBuilder := b.createGPUBuilder(engine, gpuDriver, mmuComponent, storage)
 	pcieConnector, rootComplexID :=
 		b.createConnection(engine, gpuDriver, mmuComponent)
 
@@ -77,7 +89,7 @@ func (b *R9NanoPlatformBuilder) createGPUs(
 func (b R9NanoPlatformBuilder) createConnection(
 	engine sim.Engine,
 	gpuDriver *driver.Driver,
-	mmuComponent *mmu.MMUImpl,
+	mmuComponent *mmu.MMU,
 ) (*pcie.Connector, int) {
 	//connection := sim.NewDirectConnection(engine)
 	// connection := noc.NewFixedBandwidthConnection(32, engine, 1*sim.GHz)
@@ -100,7 +112,8 @@ func (b R9NanoPlatformBuilder) createConnection(
 func (b *R9NanoPlatformBuilder) createGPUBuilder(
 	engine sim.Engine,
 	gpuDriver *driver.Driver,
-	mmuComponent *mmu.MMUImpl,
+	mmuComponent *mmu.MMU,
+	storage *mem.Storage,
 ) R9NanoGPUBuilder {
 	gpuBuilder := MakeR9NanoGPUBuilder().
 		WithEngine(engine).
@@ -109,7 +122,8 @@ func (b *R9NanoPlatformBuilder) createGPUBuilder(
 		WithNumShaderArray(16).
 		WithNumMemoryBank(16).
 		WithLog2MemoryBankInterleavingSize(7).
-		WithLog2PageSize(b.log2PageSize)
+		WithLog2PageSize(b.log2PageSize).
+		WithGlobalStorage(storage)
 
 	if b.monitor != nil {
 		gpuBuilder = gpuBuilder.WithMonitor(b.monitor)

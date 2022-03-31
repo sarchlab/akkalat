@@ -19,7 +19,18 @@ func (b R9NanoPlatformBuilder) meshBuild() *Platform {
 
 	mmuComponent, pageTable := b.createMMU(engine)
 
-	gpuDriver := driver.NewDriver(engine, pageTable, b.log2PageSize)
+	storage := mem.NewStorage(uint64(1+b.numGPU) * 4 * mem.GB)
+
+	gpuDriverBuilder := driver.MakeBuilder()
+	if b.useMagicMemoryCopy {
+		gpuDriverBuilder = gpuDriverBuilder.WithMagicMemoryCopyMiddleware()
+	}
+	gpuDriver := gpuDriverBuilder.
+		WithEngine(engine).
+		WithPageTable(pageTable).
+		WithLog2PageSize(b.log2PageSize).
+		WithGlobalStorage(storage).
+		Build("Driver")
 	// file, err := os.Create("driver_comm.csv")
 	// if err != nil {
 	// 	panic(err)
@@ -31,7 +42,8 @@ func (b R9NanoPlatformBuilder) meshBuild() *Platform {
 		b.monitor.RegisterComponent(gpuDriver)
 	}
 
-	gpuBuilder := b.createMeshGPUBuilder(engine, gpuDriver, mmuComponent)
+	gpuBuilder := b.createMeshGPUBuilder(
+		engine, gpuDriver, mmuComponent, storage)
 
 	meshConnector := b.createMeshConnection(engine, gpuDriver, mmuComponent)
 
@@ -90,7 +102,7 @@ func (b *R9NanoPlatformBuilder) createMeshGPUs(
 func (b R9NanoPlatformBuilder) createMeshConnection(
 	engine sim.Engine,
 	gpuDriver *driver.Driver,
-	mmuComponent *mmu.MMUImpl,
+	mmuComponent *mmu.MMU,
 ) *mesh.Connector {
 	//connection := sim.NewDirectConnection(engine)
 	// connection := noc.NewFixedBandwidthConnection(32, engine, 1*sim.GHz)
@@ -134,7 +146,8 @@ func (b R9NanoPlatformBuilder) createMeshConnection(
 func (b *R9NanoPlatformBuilder) createMeshGPUBuilder(
 	engine sim.Engine,
 	gpuDriver *driver.Driver,
-	mmuComponent *mmu.MMUImpl,
+	mmuComponent *mmu.MMU,
+	storage *mem.Storage,
 ) R9NanoGPUBuilder {
 	gpuBuilder := MakeR9NanoGPUBuilder().
 		WithEngine(engine).
@@ -143,7 +156,8 @@ func (b *R9NanoPlatformBuilder) createMeshGPUBuilder(
 		WithNumShaderArray(4).
 		WithNumMemoryBank(1).
 		WithLog2MemoryBankInterleavingSize(7).
-		WithLog2PageSize(b.log2PageSize)
+		WithLog2PageSize(b.log2PageSize).
+		WithGlobalStorage(storage)
 
 	if b.monitor != nil {
 		gpuBuilder = gpuBuilder.WithMonitor(b.monitor)
