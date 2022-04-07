@@ -5,16 +5,16 @@ import (
 	"log"
 	"os"
 
-	memtraces "gitlab.com/akita/mem/v2/trace"
+	memtraces "gitlab.com/akita/mem/v3/trace"
 
-	"gitlab.com/akita/akita/v2/monitoring"
-	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mem/v2/mem"
-	"gitlab.com/akita/mem/v2/vm"
-	"gitlab.com/akita/mem/v2/vm/mmu"
-	"gitlab.com/akita/mgpusim/v2/driver"
-	"gitlab.com/akita/noc/v2/networking/mesh"
-	"gitlab.com/akita/util/v2/tracing"
+	"gitlab.com/akita/akita/v3/monitoring"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/akita/v3/tracing"
+	"gitlab.com/akita/mem/v3/mem"
+	"gitlab.com/akita/mem/v3/vm"
+	"gitlab.com/akita/mem/v3/vm/mmu"
+	"gitlab.com/akita/mgpusim/v3/driver"
+	"gitlab.com/akita/noc/v3/networking/mesh"
 )
 
 // R9NanoPlatformBuilder can build a platform that equips R9Nano GPU.
@@ -26,10 +26,13 @@ type R9NanoPlatformBuilder struct {
 	visTraceEndTime       sim.VTimeInSec
 	traceMem              bool
 	tileWidth, tileHeight int
+	numSAPerGPU           int
+	numCUPerSA            int
 	memCreated            uint64
 	useMagicMemoryCopy    bool
 	log2PageSize          uint64
 
+	engine  sim.Engine
 	monitor *monitoring.Monitor
 
 	globalStorage *mem.Storage
@@ -45,6 +48,8 @@ func MakeR9NanoBuilder() R9NanoPlatformBuilder {
 		log2PageSize:      12,
 		visTraceStartTime: -1,
 		visTraceEndTime:   -1,
+		numSAPerGPU:       16,
+		numCUPerSA:        4,
 	}
 	return b
 }
@@ -265,8 +270,8 @@ func (b *R9NanoPlatformBuilder) createGPUBuilder(
 	gpuBuilder := MakeR9NanoGPUBuilder().
 		WithEngine(engine).
 		WithMMU(mmuComponent).
-		WithNumCUPerShaderArray(4).
-		WithNumShaderArray(8).
+		WithNumCUPerShaderArray(b.numCUPerSA).
+		WithNumShaderArray(b.numSAPerGPU).
 		WithNumMemoryBank(8).
 		WithLog2MemoryBankInterleavingSize(7).
 		WithLog2PageSize(b.log2PageSize).
@@ -306,7 +311,7 @@ func (b *R9NanoPlatformBuilder) setMemTracer(
 		panic(err)
 	}
 	logger := log.New(file, "", 0)
-	memTracer := memtraces.NewTracer(logger)
+	memTracer := memtraces.NewTracer(logger, b.engine)
 	gpuBuilder = gpuBuilder.WithMemTracer(memTracer)
 	return gpuBuilder
 }
@@ -320,6 +325,7 @@ func (b *R9NanoPlatformBuilder) setVisTracer(
 	}
 
 	tracer := tracing.NewMySQLTracerWithTimeRange(
+		b.engine,
 		b.visTraceStartTime,
 		b.visTraceEndTime)
 	tracer.Init()

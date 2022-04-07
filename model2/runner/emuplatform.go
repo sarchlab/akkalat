@@ -3,10 +3,10 @@ package runner
 import (
 	"fmt"
 
-	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mem/v2/mem"
-	"gitlab.com/akita/mem/v2/vm"
-	"gitlab.com/akita/mgpusim/v2/driver"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/mem/v3/mem"
+	"gitlab.com/akita/mem/v3/vm"
+	"gitlab.com/akita/mgpusim/v3/driver"
 )
 
 // EmuBuilder can build a platform for emulation purposes.
@@ -119,7 +119,11 @@ func (b EmuBuilder) Build() *Platform {
 			Build(fmt.Sprintf("GPU_%d", i+1))
 
 		cpPort := gpu.Domain.GetPortByName("CommandProcessor")
-		gpuDriver.RegisterGPU(cpPort, 4*mem.GB)
+		gpuDriver.RegisterGPU(cpPort,
+			driver.DeviceProperties{
+				CUCount:  4,
+				DRAMSize: 4 * mem.GB,
+			})
 		connection.PlugIn(cpPort, 64)
 
 		b.gpus = append(b.gpus, gpu)
