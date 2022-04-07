@@ -33,7 +33,7 @@ require (
 
 replace gitlab.com/akita/mgpusim/v3 => ../mgpusim
 
-// replace gitlab.com/akita/noc/v3 => ../noc
+replace gitlab.com/akita/noc/v3 => ../noc
 
 // replace gitlab.com/akita/mem/v3 => ../mem
 
