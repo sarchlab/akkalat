@@ -32,8 +32,9 @@ type R9NanoPlatformBuilder struct {
 	log2PageSize          uint64
 	switchLatency         int
 
-	engine  sim.Engine
-	monitor *monitoring.Monitor
+	engine    sim.Engine
+	visTracer tracing.Tracer
+	monitor   *monitoring.Monitor
 
 	globalStorage *mem.Storage
 
@@ -129,6 +130,8 @@ func (b R9NanoPlatformBuilder) Build() *Platform {
 		b.monitor.RegisterEngine(b.engine)
 	}
 
+	b.createVisTracer()
+
 	numGPU := b.tileWidth*b.tileHeight - 1
 	b.globalStorage = mem.NewStorage(uint64(1+numGPU) * 4 * mem.GB)
 
@@ -178,6 +181,15 @@ func (b R9NanoPlatformBuilder) Build() *Platform {
 	}
 }
 
+func (b *R9NanoPlatformBuilder) createVisTracer() {
+	tracer := tracing.NewMySQLTracerWithTimeRange(
+		b.engine,
+		b.visTraceStartTime,
+		b.visTraceEndTime)
+	tracer.Init()
+	b.visTracer = tracer
+}
+
 func (b *R9NanoPlatformBuilder) createGPUs(
 	connector *mesh.Connector,
 	gpuBuilder R9NanoGPUBuilder,
@@ -221,6 +233,11 @@ func (b R9NanoPlatformBuilder) createConnection(
 		WithFlitSize(16).
 		WithBandwidth(1).
 		WithSwitchLatency(b.switchLatency)
+
+	if b.traceVis {
+		connector = connector.WithVisTracer(b.visTracer)
+	}
+
 	connector.CreateNetwork("Mesh")
 	connector.AddTile([3]int{b.tileWidth / 2, b.tileHeight / 2, 0}, []sim.Port{
 		gpuDriver.GetPortByName("GPU"),
@@ -323,18 +340,10 @@ func (b *R9NanoPlatformBuilder) setVisTracer(
 	gpuDriver *driver.Driver,
 	gpuBuilder R9NanoGPUBuilder,
 ) R9NanoGPUBuilder {
-	if !b.traceVis {
-		return gpuBuilder
+	if b.traceVis {
+		gpuBuilder = gpuBuilder.WithVisTracer(b.visTracer)
 	}
 
-	tracer := tracing.NewMySQLTracerWithTimeRange(
-		b.engine,
-		b.visTraceStartTime,
-		b.visTraceEndTime)
-	tracer.Init()
-	tracing.CollectTrace(gpuDriver, tracer)
-
-	gpuBuilder = gpuBuilder.WithVisTracer(tracer)
 	return gpuBuilder
 }
 

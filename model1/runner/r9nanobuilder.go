@@ -733,6 +733,10 @@ func (b *R9NanoGPUBuilder) buildRDMAEngine() {
 	if b.monitor != nil {
 		b.monitor.RegisterComponent(b.rdmaEngine)
 	}
+
+	if b.enableVisTracing {
+		tracing.CollectTrace(b.rdmaEngine, b.visTracer)
+	}
 }
 
 func (b *R9NanoGPUBuilder) buildPageMigrationController() {
