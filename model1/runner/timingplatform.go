@@ -182,6 +182,10 @@ func (b R9NanoPlatformBuilder) Build() *Platform {
 }
 
 func (b *R9NanoPlatformBuilder) createVisTracer() {
+	if !b.traceVis {
+		return
+	}
+
 	tracer := tracing.NewMySQLTracerWithTimeRange(
 		b.engine,
 		b.visTraceStartTime,
