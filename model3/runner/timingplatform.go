@@ -28,13 +28,12 @@ type R9NanoPlatformBuilder struct {
 	tileWidth, tileHeight int
 	numSAPerGPU           int
 	numCUPerSA            int
+	memCreated            uint64
 	useMagicMemoryCopy    bool
 	log2PageSize          uint64
-	switchLatency         int
 
-	engine    sim.Engine
-	visTracer tracing.Tracer
-	monitor   *monitoring.Monitor
+	engine  sim.Engine
+	monitor *monitoring.Monitor
 
 	globalStorage *mem.Storage
 
@@ -49,8 +48,7 @@ func MakeR9NanoBuilder() R9NanoPlatformBuilder {
 		log2PageSize:      12,
 		visTraceStartTime: -1,
 		visTraceEndTime:   -1,
-		switchLatency:     10,
-		numSAPerGPU:       8,
+		numSAPerGPU:       16,
 		numCUPerSA:        4,
 	}
 	return b
@@ -115,38 +113,29 @@ func (b R9NanoPlatformBuilder) WithMagicMemoryCopy() R9NanoPlatformBuilder {
 	return b
 }
 
-// WithSwitchLatency sets the switch latency.
-func (b R9NanoPlatformBuilder) WithSwitchLatency(
-	latency int,
-) R9NanoPlatformBuilder {
-	b.switchLatency = latency
-	return b
-}
-
 // Build builds a platform with R9Nano GPUs.
 func (b R9NanoPlatformBuilder) Build() *Platform {
-	b.engine = b.createEngine()
+	engine := b.createEngine()
 	if b.monitor != nil {
-		b.monitor.RegisterEngine(b.engine)
+		b.monitor.RegisterEngine(engine)
 	}
-
-	b.createVisTracer()
 
 	numGPU := b.tileWidth*b.tileHeight - 1
 	b.globalStorage = mem.NewStorage(uint64(1+numGPU) * 4 * mem.GB)
 
-	mmuComponent, pageTable := b.createMMU(b.engine)
+	mmuComponent, pageTable := b.createMMU(engine)
 
 	gpuDriverBuilder := driver.MakeBuilder()
 	if b.useMagicMemoryCopy {
 		gpuDriverBuilder = gpuDriverBuilder.WithMagicMemoryCopyMiddleware()
 	}
 	gpuDriver := gpuDriverBuilder.
-		WithEngine(b.engine).
+		WithEngine(engine).
 		WithPageTable(pageTable).
 		WithLog2PageSize(b.log2PageSize).
 		WithGlobalStorage(b.globalStorage).
 		Build("Driver")
+	b.memCreated = 4 * mem.GB
 	// file, err := os.Create("driver_comm.csv")
 	// if err != nil {
 	// 	panic(err)
@@ -158,9 +147,9 @@ func (b R9NanoPlatformBuilder) Build() *Platform {
 		b.monitor.RegisterComponent(gpuDriver)
 	}
 
-	connector := b.createConnection(b.engine, gpuDriver, mmuComponent)
+	connector := b.createConnection(engine, gpuDriver, mmuComponent)
 
-	gpuBuilder := b.createGPUBuilder(b.engine, gpuDriver, mmuComponent)
+	gpuBuilder := b.createGPUBuilder(engine, gpuDriver, mmuComponent)
 
 	mmuComponent.MigrationServiceProvider = gpuDriver.GetPortByName("MMU")
 
@@ -175,23 +164,10 @@ func (b R9NanoPlatformBuilder) Build() *Platform {
 	connector.EstablishNetwork()
 
 	return &Platform{
-		Engine: b.engine,
+		Engine: engine,
 		Driver: gpuDriver,
 		GPUs:   b.gpus,
 	}
-}
-
-func (b *R9NanoPlatformBuilder) createVisTracer() {
-	if !b.traceVis {
-		return
-	}
-
-	tracer := tracing.NewMySQLTracerWithTimeRange(
-		b.engine,
-		b.visTraceStartTime,
-		b.visTraceEndTime)
-	tracer.Init()
-	b.visTracer = tracer
 }
 
 func (b *R9NanoPlatformBuilder) createGPUs(
@@ -207,7 +183,12 @@ func (b *R9NanoPlatformBuilder) createGPUs(
 				continue
 			}
 
-			b.createGPU(x, y, gpuBuilder, gpuDriver, rdmaAddressTable, pmcAddressTable, connector)
+			b.createGPU(
+				x, y,
+				gpuBuilder, gpuDriver,
+				rdmaAddressTable, pmcAddressTable,
+				connector,
+			)
 		}
 	}
 }
@@ -236,12 +217,7 @@ func (b R9NanoPlatformBuilder) createConnection(
 		WithFreq(1 * sim.GHz).
 		WithFlitSize(16).
 		WithBandwidth(1).
-		WithSwitchLatency(b.switchLatency)
-
-	if b.traceVis {
-		connector = connector.WithVisTracer(b.visTracer)
-	}
-
+		WithSwitchLatency(80)
 	connector.CreateNetwork("Mesh")
 	connector.AddTile([3]int{b.tileWidth / 2, b.tileHeight / 2, 0}, []sim.Port{
 		gpuDriver.GetPortByName("GPU"),
@@ -344,10 +320,18 @@ func (b *R9NanoPlatformBuilder) setVisTracer(
 	gpuDriver *driver.Driver,
 	gpuBuilder R9NanoGPUBuilder,
 ) R9NanoGPUBuilder {
-	if b.traceVis {
-		gpuBuilder = gpuBuilder.WithVisTracer(b.visTracer)
+	if !b.traceVis {
+		return gpuBuilder
 	}
 
+	tracer := tracing.NewMySQLTracerWithTimeRange(
+		b.engine,
+		b.visTraceStartTime,
+		b.visTraceEndTime)
+	tracer.Init()
+	tracing.CollectTrace(gpuDriver, tracer)
+
+	gpuBuilder = gpuBuilder.WithVisTracer(tracer)
 	return gpuBuilder
 }
 
@@ -361,18 +345,39 @@ func (b *R9NanoPlatformBuilder) createGPU(
 ) *GPU {
 	index := uint64(len(b.gpus)) + 1
 	name := fmt.Sprintf("GPU_%d_%d", x, y)
-	memAddrOffset := index * 4 * mem.GB
-	gpu := gpuBuilder.
-		WithMemAddrOffset(memAddrOffset).
-		Build(name, uint64(index))
-	gpuDriver.RegisterGPU(gpu.Domain.GetPortByName("CommandProcessor"),
+	var memToCreate uint64
+	var numShaderArray int
+	var numMemoryBank int
+	numCUPerShaderArray := 4
+
+	if b.isGPUTile(x, y) {
+		memToCreate = 0
+		numMemoryBank = 0
+		numShaderArray = 12
+	} else {
+		numShaderArray = 0
+		memToCreate = 4 * mem.GB
+		numMemoryBank = 16
+	}
+
+	gpuBuilder = gpuBuilder.
+		WithMemAddrOffset(b.memCreated).
+		WithNumCUPerShaderArray(numCUPerShaderArray).
+		WithNumShaderArray(numShaderArray).
+		WithDRAMSize(memToCreate).
+		WithNumMemoryBank(numMemoryBank)
+	gpu := gpuBuilder.Build(name, uint64(index))
+	gpuDriver.RegisterGPU(
+		gpu.Domain.GetPortByName("CommandProcessor"),
 		driver.DeviceProperties{
-			CUCount:  32,
-			DRAMSize: 4 * mem.GB,
-		})
+			CUCount:  numShaderArray * numCUPerShaderArray,
+			DRAMSize: memToCreate,
+		},
+	)
+	b.memCreated += memToCreate
 	gpu.CommandProcessor.Driver = gpuDriver.GetPortByName("GPU")
 
-	b.configRDMAEngine(gpu, rdmaAddressTable)
+	b.configRDMAEngine(gpu, rdmaAddressTable, memToCreate > 0)
 	b.configPMC(gpu, gpuDriver, pmcAddressTable)
 
 	connector.AddTile([3]int{x, y, 0}, gpu.Domain.Ports())
@@ -382,14 +387,30 @@ func (b *R9NanoPlatformBuilder) createGPU(
 	return gpu
 }
 
+func (b *R9NanoPlatformBuilder) isGPUTile(x, y int) bool {
+	if x == 0 || y == 0 {
+		return true
+	}
+
+	if x == b.tileWidth-1 || y == b.tileHeight-1 {
+		return true
+	}
+
+	return false
+}
+
 func (b *R9NanoPlatformBuilder) configRDMAEngine(
 	gpu *GPU,
 	addrTable *mem.BankedLowModuleFinder,
+	isMemProvider bool,
 ) {
 	gpu.RDMAEngine.RemoteRDMAAddressTable = addrTable
-	addrTable.LowModules = append(
-		addrTable.LowModules,
-		gpu.RDMAEngine.ToOutside)
+
+	if isMemProvider {
+		addrTable.LowModules = append(
+			addrTable.LowModules,
+			gpu.RDMAEngine.ToOutside)
+	}
 }
 
 func (b *R9NanoPlatformBuilder) configPMC(

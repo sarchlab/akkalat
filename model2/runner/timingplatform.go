@@ -5,16 +5,16 @@ import (
 	"log"
 	"os"
 
-	memtraces "gitlab.com/akita/mem/v2/trace"
+	memtraces "gitlab.com/akita/mem/v3/trace"
 
-	"gitlab.com/akita/akita/v2/monitoring"
-	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mem/v2/mem"
-	"gitlab.com/akita/mem/v2/vm"
-	"gitlab.com/akita/mem/v2/vm/mmu"
-	"gitlab.com/akita/mgpusim/v2/driver"
-	"gitlab.com/akita/noc/v2/networking/networkconnector"
-	"gitlab.com/akita/util/v2/tracing"
+	"gitlab.com/akita/akita/v3/monitoring"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/akita/v3/tracing"
+	"gitlab.com/akita/mem/v3/mem"
+	"gitlab.com/akita/mem/v3/vm"
+	"gitlab.com/akita/mem/v3/vm/mmu"
+	"gitlab.com/akita/mgpusim/v3/driver"
+	"gitlab.com/akita/noc/v3/networking/networkconnector"
 )
 
 // R9NanoPlatformBuilder can build a platform that equips R9Nano GPU.
@@ -26,10 +26,13 @@ type R9NanoPlatformBuilder struct {
 	visTraceEndTime       sim.VTimeInSec
 	traceMem              bool
 	tileWidth, tileHeight int
+	numSAPerGPU           int
+	numCUPerSA            int
 	useMagicMemoryCopy    bool
 	log2PageSize          uint64
 	centralSwitchID       int
 
+	engine  sim.Engine
 	monitor *monitoring.Monitor
 
 	globalStorage *mem.Storage
@@ -45,6 +48,8 @@ func MakeR9NanoBuilder() R9NanoPlatformBuilder {
 		log2PageSize:      12,
 		visTraceStartTime: -1,
 		visTraceEndTime:   -1,
+		numSAPerGPU:       8,
+		numCUPerSA:        4,
 	}
 	return b
 }
@@ -110,22 +115,22 @@ func (b R9NanoPlatformBuilder) WithMagicMemoryCopy() R9NanoPlatformBuilder {
 
 // Build builds a platform with R9Nano GPUs.
 func (b R9NanoPlatformBuilder) Build() *Platform {
-	engine := b.createEngine()
+	b.engine = b.createEngine()
 	if b.monitor != nil {
-		b.monitor.RegisterEngine(engine)
+		b.monitor.RegisterEngine(b.engine)
 	}
 
 	numGPU := b.tileWidth*b.tileHeight - 1
 	b.globalStorage = mem.NewStorage(uint64(1+numGPU) * 4 * mem.GB)
 
-	mmuComponent, pageTable := b.createMMU(engine)
+	mmuComponent, pageTable := b.createMMU(b.engine)
 
 	gpuDriverBuilder := driver.MakeBuilder()
 	if b.useMagicMemoryCopy {
 		gpuDriverBuilder = gpuDriverBuilder.WithMagicMemoryCopyMiddleware()
 	}
 	gpuDriver := gpuDriverBuilder.
-		WithEngine(engine).
+		WithEngine(b.engine).
 		WithPageTable(pageTable).
 		WithLog2PageSize(b.log2PageSize).
 		WithGlobalStorage(b.globalStorage).
@@ -141,9 +146,9 @@ func (b R9NanoPlatformBuilder) Build() *Platform {
 		b.monitor.RegisterComponent(gpuDriver)
 	}
 
-	connector := b.createConnection(engine, gpuDriver, mmuComponent)
+	connector := b.createConnection(b.engine, gpuDriver, mmuComponent)
 
-	gpuBuilder := b.createGPUBuilder(engine, gpuDriver, mmuComponent)
+	gpuBuilder := b.createGPUBuilder(b.engine, gpuDriver, mmuComponent)
 
 	mmuComponent.MigrationServiceProvider = gpuDriver.GetPortByName("MMU")
 
@@ -158,7 +163,7 @@ func (b R9NanoPlatformBuilder) Build() *Platform {
 	connector.EstablishRoute()
 
 	return &Platform{
-		Engine: engine,
+		Engine: b.engine,
 		Driver: gpuDriver,
 		GPUs:   b.gpus,
 	}
@@ -203,8 +208,9 @@ func (b R9NanoPlatformBuilder) createConnection(
 ) networkconnector.Connector {
 	connector := networkconnector.MakeConnector().
 		WithEngine(engine).
-		WithDefaultFreq(1 * sim.GHz)
-	connector.NewNetwork("Mesh")
+		WithDefaultFreq(1 * sim.GHz).
+		WithFlitSize(64)
+	connector.NewNetwork("Passage")
 
 	b.centralSwitchID = connector.AddSwitch()
 
@@ -274,8 +280,8 @@ func (b *R9NanoPlatformBuilder) createGPUBuilder(
 	gpuBuilder := MakeR9NanoGPUBuilder().
 		WithEngine(engine).
 		WithMMU(mmuComponent).
-		WithNumCUPerShaderArray(4).
-		WithNumShaderArray(8).
+		WithNumCUPerShaderArray(b.numCUPerSA).
+		WithNumShaderArray(b.numSAPerGPU).
 		WithNumMemoryBank(8).
 		WithLog2MemoryBankInterleavingSize(7).
 		WithLog2PageSize(b.log2PageSize).
@@ -315,7 +321,7 @@ func (b *R9NanoPlatformBuilder) setMemTracer(
 		panic(err)
 	}
 	logger := log.New(file, "", 0)
-	memTracer := memtraces.NewTracer(logger)
+	memTracer := memtraces.NewTracer(logger, b.engine)
 	gpuBuilder = gpuBuilder.WithMemTracer(memTracer)
 	return gpuBuilder
 }
@@ -329,6 +335,7 @@ func (b *R9NanoPlatformBuilder) setVisTracer(
 	}
 
 	tracer := tracing.NewMySQLTracerWithTimeRange(
+		b.engine,
 		b.visTraceStartTime,
 		b.visTraceEndTime)
 	tracer.Init()
@@ -354,7 +361,10 @@ func (b *R9NanoPlatformBuilder) createGPU(
 		Build(name, uint64(index))
 	gpuDriver.RegisterGPU(
 		gpu.Domain.GetPortByName("CommandProcessor"),
-		4*mem.GB)
+		driver.DeviceProperties{
+			CUCount:  b.numSAPerGPU * b.numCUPerSA,
+			DRAMSize: 0,
+		})
 	gpu.CommandProcessor.Driver = gpuDriver.GetPortByName("GPU")
 
 	b.configRDMAEngine(gpu, rdmaAddressTable)

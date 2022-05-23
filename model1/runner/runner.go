@@ -15,12 +15,12 @@ import (
 	"sync"
 
 	"github.com/tebeka/atexit"
-	"gitlab.com/akita/akita/v2/monitoring"
-	"gitlab.com/akita/akita/v2/sim"
-	"gitlab.com/akita/mgpusim/v2/benchmarks"
-	"gitlab.com/akita/mgpusim/v2/driver"
-	"gitlab.com/akita/mgpusim/v2/timing/rdma"
-	"gitlab.com/akita/util/v2/tracing"
+	"gitlab.com/akita/akita/v3/monitoring"
+	"gitlab.com/akita/akita/v3/sim"
+	"gitlab.com/akita/akita/v3/tracing"
+	"gitlab.com/akita/mgpusim/v3/benchmarks"
+	"gitlab.com/akita/mgpusim/v3/driver"
+	"gitlab.com/akita/mgpusim/v3/timing/rdma"
 )
 
 var timingFlag = flag.Bool("timing", false, "Run detailed timing simulation.")
@@ -58,6 +58,8 @@ var filenameFlag = flag.String("metric-file-name", "metrics",
 	"Modify the name of the output csv file.")
 var magicMemoryCopy = flag.Bool("magic-memory-copy", false,
 	"Copy data from CPU directly to global memory")
+var switchLatencyFlag = flag.Int("switch-latency", 10,
+	"The latency of the switch")
 
 type verificationPreEnablingBenchmark interface {
 	benchmarks.Benchmark
@@ -256,7 +258,7 @@ func (r *Runner) buildEmuPlatform() {
 }
 
 func (r *Runner) buildTimingPlatform() {
-	b := MakeR9NanoBuilder()
+	b := MakeR9NanoBuilder().WithSwitchLatency(*switchLatencyFlag)
 
 	if r.Parallel {
 		b = b.WithParallelEngine()
@@ -304,6 +306,7 @@ func (r *Runner) addMaxInstStopper() {
 
 func (r *Runner) addKernelTimeTracer() {
 	r.kernelTimeCounter = tracing.NewBusyTimeTracer(
+		r.platform.Engine,
 		func(task tracing.Task) bool {
 			return task.What == "*driver.LaunchKernelCommand"
 		})
@@ -311,6 +314,7 @@ func (r *Runner) addKernelTimeTracer() {
 
 	for _, gpu := range r.platform.GPUs {
 		gpuKernelTimeCounter := tracing.NewBusyTimeTracer(
+			r.platform.Engine,
 			func(task tracing.Task) bool {
 				return task.What == "*protocol.LaunchKernelReq"
 			})
@@ -346,6 +350,7 @@ func (r *Runner) addCacheLatencyTracer() {
 	for _, gpu := range r.platform.GPUs {
 		for _, cache := range gpu.L1ICaches {
 			tracer := tracing.NewAverageTimeTracer(
+				r.platform.Engine,
 				func(task tracing.Task) bool {
 					return task.Kind == "req_in"
 				})
@@ -356,6 +361,7 @@ func (r *Runner) addCacheLatencyTracer() {
 
 		for _, cache := range gpu.L1SCaches {
 			tracer := tracing.NewAverageTimeTracer(
+				r.platform.Engine,
 				func(task tracing.Task) bool {
 					return task.Kind == "req_in"
 				})
@@ -366,6 +372,7 @@ func (r *Runner) addCacheLatencyTracer() {
 
 		for _, cache := range gpu.L1VCaches {
 			tracer := tracing.NewAverageTimeTracer(
+				r.platform.Engine,
 				func(task tracing.Task) bool {
 					return task.Kind == "req_in"
 				})
@@ -376,6 +383,7 @@ func (r *Runner) addCacheLatencyTracer() {
 
 		for _, cache := range gpu.L2Caches {
 			tracer := tracing.NewAverageTimeTracer(
+				r.platform.Engine,
 				func(task tracing.Task) bool {
 					return task.Kind == "req_in"
 				})
@@ -475,6 +483,7 @@ func (r *Runner) addRDMAEngineTracer() {
 		t := rdmaTransactionCountTracer{}
 		t.rdmaEngine = gpu.RDMAEngine
 		t.incomingTracer = tracing.NewAverageTimeTracer(
+			r.platform.Engine,
 			func(task tracing.Task) bool {
 				if task.Kind != "req_in" {
 					return false
@@ -489,6 +498,7 @@ func (r *Runner) addRDMAEngineTracer() {
 				return true
 			})
 		t.outgoingTracer = tracing.NewAverageTimeTracer(
+			r.platform.Engine,
 			func(task tracing.Task) bool {
 				if task.Kind != "req_in" {
 					return false

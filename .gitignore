@@ -20,3 +20,4 @@
 *.pdf
 *.debug
 *.log
+__debug_bin

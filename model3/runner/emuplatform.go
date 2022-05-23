@@ -121,7 +121,7 @@ func (b EmuBuilder) Build() *Platform {
 		cpPort := gpu.Domain.GetPortByName("CommandProcessor")
 		gpuDriver.RegisterGPU(cpPort,
 			driver.DeviceProperties{
-				CUCount:  4,
+				CUCount:  64,
 				DRAMSize: 4 * mem.GB,
 			})
 		connection.PlugIn(cpPort, 64)

@@ -1,28 +1,28 @@
 package benchmarkselection
 
 import (
-	"gitlab.com/akita/mgpusim/v2/benchmarks"
-	"gitlab.com/akita/mgpusim/v2/benchmarks/amdappsdk/bitonicsort"
-	"gitlab.com/akita/mgpusim/v2/benchmarks/amdappsdk/fastwalshtransform"
-	"gitlab.com/akita/mgpusim/v2/benchmarks/amdappsdk/floydwarshall"
-	"gitlab.com/akita/mgpusim/v2/benchmarks/amdappsdk/matrixmultiplication"
-	"gitlab.com/akita/mgpusim/v2/benchmarks/amdappsdk/matrixtranspose"
-	"gitlab.com/akita/mgpusim/v2/benchmarks/amdappsdk/nbody"
-	"gitlab.com/akita/mgpusim/v2/benchmarks/amdappsdk/simpleconvolution"
-	"gitlab.com/akita/mgpusim/v2/benchmarks/dnn/conv2d"
-	"gitlab.com/akita/mgpusim/v2/benchmarks/dnn/im2col"
-	"gitlab.com/akita/mgpusim/v2/benchmarks/dnn/relu"
-	"gitlab.com/akita/mgpusim/v2/benchmarks/heteromark/aes"
-	"gitlab.com/akita/mgpusim/v2/benchmarks/heteromark/fir"
-	"gitlab.com/akita/mgpusim/v2/benchmarks/heteromark/kmeans"
-	"gitlab.com/akita/mgpusim/v2/benchmarks/heteromark/pagerank"
-	"gitlab.com/akita/mgpusim/v2/benchmarks/polybench/atax"
-	"gitlab.com/akita/mgpusim/v2/benchmarks/polybench/bicg"
-	"gitlab.com/akita/mgpusim/v2/benchmarks/rodinia/nw"
-	"gitlab.com/akita/mgpusim/v2/benchmarks/shoc/fft"
-	"gitlab.com/akita/mgpusim/v2/benchmarks/shoc/spmv"
-	"gitlab.com/akita/mgpusim/v2/benchmarks/shoc/stencil2d"
-	"gitlab.com/akita/mgpusim/v2/driver"
+	"gitlab.com/akita/mgpusim/v3/benchmarks"
+	"gitlab.com/akita/mgpusim/v3/benchmarks/amdappsdk/bitonicsort"
+	"gitlab.com/akita/mgpusim/v3/benchmarks/amdappsdk/fastwalshtransform"
+	"gitlab.com/akita/mgpusim/v3/benchmarks/amdappsdk/floydwarshall"
+	"gitlab.com/akita/mgpusim/v3/benchmarks/amdappsdk/matrixmultiplication"
+	"gitlab.com/akita/mgpusim/v3/benchmarks/amdappsdk/matrixtranspose"
+	"gitlab.com/akita/mgpusim/v3/benchmarks/amdappsdk/nbody"
+	"gitlab.com/akita/mgpusim/v3/benchmarks/amdappsdk/simpleconvolution"
+	"gitlab.com/akita/mgpusim/v3/benchmarks/dnn/conv2d"
+	"gitlab.com/akita/mgpusim/v3/benchmarks/dnn/im2col"
+	"gitlab.com/akita/mgpusim/v3/benchmarks/dnn/relu"
+	"gitlab.com/akita/mgpusim/v3/benchmarks/heteromark/aes"
+	"gitlab.com/akita/mgpusim/v3/benchmarks/heteromark/fir"
+	"gitlab.com/akita/mgpusim/v3/benchmarks/heteromark/kmeans"
+	"gitlab.com/akita/mgpusim/v3/benchmarks/heteromark/pagerank"
+	"gitlab.com/akita/mgpusim/v3/benchmarks/polybench/atax"
+	"gitlab.com/akita/mgpusim/v3/benchmarks/polybench/bicg"
+	"gitlab.com/akita/mgpusim/v3/benchmarks/rodinia/nw"
+	"gitlab.com/akita/mgpusim/v3/benchmarks/shoc/fft"
+	"gitlab.com/akita/mgpusim/v3/benchmarks/shoc/spmv"
+	"gitlab.com/akita/mgpusim/v3/benchmarks/shoc/stencil2d"
+	"gitlab.com/akita/mgpusim/v3/driver"
 )
 
 func SelectBenchmark(name string, driver *driver.Driver) benchmarks.Benchmark {
@@ -30,7 +30,7 @@ func SelectBenchmark(name string, driver *driver.Driver) benchmarks.Benchmark {
 	switch name {
 	case "aes":
 		aes := aes.NewBenchmark(driver)
-		aes.Length = 10485760
+		aes.Length = 10485760 * 5
 		benchmark = aes
 	case "atax":
 		atax := atax.NewBenchmark(driver)
@@ -44,11 +44,11 @@ func SelectBenchmark(name string, driver *driver.Driver) benchmarks.Benchmark {
 		benchmark = bicg
 	case "bitonicsort":
 		bitonicsort := bitonicsort.NewBenchmark(driver)
-		bitonicsort.Length = 65536
+		bitonicsort.Length = 655360
 		benchmark = bitonicsort
 	case "conv2d":
 		conv2d := conv2d.NewBenchmark(driver)
-		conv2d.N = 64
+		conv2d.N = 8
 		conv2d.C = 3
 		conv2d.H = 256
 		conv2d.W = 256
@@ -66,21 +66,22 @@ func SelectBenchmark(name string, driver *driver.Driver) benchmarks.Benchmark {
 		benchmark = fastwalshtransform
 	case "fir":
 		fir := fir.NewBenchmark(driver)
-		fir.Length = 1048576
+		// fir.Length = 10485760
+		fir.Length = 65536
 		benchmark = fir
 	case "fft":
 		fft := fft.NewBenchmark(driver)
-		fft.Bytes = 1024
+		fft.Bytes = 128
 		fft.Passes = 2
 		benchmark = fft
 	case "floydwarshall":
 		floydwarshall := floydwarshall.NewBenchmark(driver)
-		floydwarshall.NumNodes = 104857600
-		floydwarshall.NumIterations = 10
+		floydwarshall.NumNodes = 1024
+		floydwarshall.NumIterations = 1024
 		benchmark = floydwarshall
 	case "im2col":
 		im2col := im2col.NewBenchmark(driver)
-		im2col.N = 1
+		im2col.N = 16
 		im2col.C = 3
 		im2col.H = 256
 		im2col.W = 256
@@ -102,32 +103,32 @@ func SelectBenchmark(name string, driver *driver.Driver) benchmarks.Benchmark {
 		benchmark = kmeans
 	case "matrixmultiplication":
 		matrixmultiplication := matrixmultiplication.NewBenchmark(driver)
-		matrixmultiplication.X = 1024
-		matrixmultiplication.Y = 1024
-		matrixmultiplication.Z = 1024
+		matrixmultiplication.X = 2048
+		matrixmultiplication.Y = 2048
+		matrixmultiplication.Z = 2048
 		benchmark = matrixmultiplication
 	case "matrixtranspose":
 		matrixtranspose := matrixtranspose.NewBenchmark(driver)
-		matrixtranspose.Width = 1024
+		matrixtranspose.Width = 4096
 		benchmark = matrixtranspose
 	case "nbody":
 		nbody := nbody.NewBenchmark(driver)
 		nbody.NumParticles = 104857600
-		nbody.NumIterations = 10
+		nbody.NumIterations = 1024
 		benchmark = nbody
 	case "nw":
 		nw := nw.NewBenchmark(driver)
-		nw.SetLength(1024)
+		nw.SetLength(8192)
 		benchmark = nw
 	case "pagerank":
 		pagerank := pagerank.NewBenchmark(driver)
-		pagerank.NumNodes = 104857600
-		pagerank.NumConnections = 102400
+		pagerank.NumNodes = 262144
+		pagerank.NumConnections = 1048576
 		pagerank.MaxIterations = 3
 		benchmark = pagerank
 	case "relu":
 		relu := relu.NewBenchmark(driver)
-		relu.Length = 104857600
+		relu.Length = 10485760
 		benchmark = relu
 	case "simpleconvolution":
 		simpleconvolution := simpleconvolution.NewBenchmark(driver)
@@ -137,8 +138,8 @@ func SelectBenchmark(name string, driver *driver.Driver) benchmarks.Benchmark {
 		benchmark = simpleconvolution
 	case "spmv":
 		spmv := spmv.NewBenchmark(driver)
-		spmv.Dim = 104857600
-		spmv.Sparsity = 0.000001
+		spmv.Dim = 10485760
+		spmv.Sparsity = 0.000000001
 		benchmark = spmv
 	case "stencil2d":
 		stencil2d := stencil2d.NewBenchmark(driver)
