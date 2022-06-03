@@ -124,6 +124,90 @@ exps = [
     ("model1", "simpleconvolution", ['-switch-latency=50']),
     ("model1", "spmv", ['-switch-latency=50']),
     ("model1", "stencil2d", ['-switch-latency=50']),
+    ("model1", "aes", ['-switch-latency=100']),
+    ("model1", "atax", ['-switch-latency=100']),
+    ("model1", "bicg", ['-switch-latency=100']),
+    ("model1", "bitonicsort", ['-switch-latency=100']),
+    ("model1", "conv2d", ['-switch-latency=100']),
+    ("model1", "fastwalshtransform", ['-switch-latency=100']),
+    ("model1", "fir", ['-switch-latency=100']),
+    ("model1", "fft", ['-switch-latency=100']),
+    ("model1", "floydwarshall", ['-switch-latency=100']),
+    ("model1", "im2col", ['-switch-latency=100']),
+    ("model1", "kmeans", ['-switch-latency=100']),
+    ("model1", "matrixmultiplication", ['-switch-latency=100']),
+    ("model1", "matrixtranspose", ['-switch-latency=100']),
+    ("model1", "nbody", ['-switch-latency=100']),
+    ("model1", "nw", ['-switch-latency=100']),
+    ("model1", "pagerank", ['-switch-latency=100']),
+    ("model1", "relu", ['-switch-latency=100']),
+    ("model1", "simpleconvolution", ['-switch-latency=100']),
+    ("model1", "spmv", ['-switch-latency=100']),
+    ("model1", "stencil2d", ['-switch-latency=100']),
+
+    ("model1", "aes", ['-switch-latency=200']),
+    ("model1", "atax", ['-switch-latency=200']),
+    ("model1", "bicg", ['-switch-latency=200']),
+    ("model1", "bitonicsort", ['-switch-latency=200']),
+    ("model1", "conv2d", ['-switch-latency=200']),
+    ("model1", "fastwalshtransform", ['-switch-latency=200']),
+    ("model1", "fir", ['-switch-latency=200']),
+    ("model1", "fft", ['-switch-latency=200']),
+    ("model1", "floydwarshall", ['-switch-latency=200']),
+    ("model1", "im2col", ['-switch-latency=200']),
+    ("model1", "kmeans", ['-switch-latency=200']),
+    ("model1", "matrixmultiplication", ['-switch-latency=200']),
+    ("model1", "matrixtranspose", ['-switch-latency=200']),
+    ("model1", "nbody", ['-switch-latency=200']),
+    ("model1", "nw", ['-switch-latency=200']),
+    ("model1", "pagerank", ['-switch-latency=200']),
+    ("model1", "relu", ['-switch-latency=200']),
+    ("model1", "simpleconvolution", ['-switch-latency=200']),
+    ("model1", "spmv", ['-switch-latency=200']),
+    ("model1", "stencil2d", ['-switch-latency=200']),
+
+    ("model1", "aes", ['-switch-latency=500']),
+    ("model1", "atax", ['-switch-latency=500']),
+    ("model1", "bicg", ['-switch-latency=500']),
+    ("model1", "bitonicsort", ['-switch-latency=500']),
+    ("model1", "conv2d", ['-switch-latency=500']),
+    ("model1", "fastwalshtransform", ['-switch-latency=500']),
+    ("model1", "fir", ['-switch-latency=500']),
+    ("model1", "fft", ['-switch-latency=500']),
+    ("model1", "floydwarshall", ['-switch-latency=500']),
+    ("model1", "im2col", ['-switch-latency=500']),
+    ("model1", "kmeans", ['-switch-latency=500']),
+    ("model1", "matrixmultiplication", ['-switch-latency=500']),
+    ("model1", "matrixtranspose", ['-switch-latency=500']),
+    ("model1", "nbody", ['-switch-latency=500']),
+    ("model1", "nw", ['-switch-latency=500']),
+    ("model1", "pagerank", ['-switch-latency=500']),
+    ("model1", "relu", ['-switch-latency=500']),
+    ("model1", "simpleconvolution", ['-switch-latency=500']),
+    ("model1", "spmv", ['-switch-latency=500']),
+    ("model1", "stencil2d", ['-switch-latency=500']),
+
+    ("model1", "aes", ['-switch-latency=1000']),
+    ("model1", "atax", ['-switch-latency=1000']),
+    ("model1", "bicg", ['-switch-latency=1000']),
+    ("model1", "bitonicsort", ['-switch-latency=1000']),
+    ("model1", "conv2d", ['-switch-latency=1000']),
+    ("model1", "fastwalshtransform", ['-switch-latency=1000']),
+    ("model1", "fir", ['-switch-latency=1000']),
+    ("model1", "fft", ['-switch-latency=1000']),
+    ("model1", "floydwarshall", ['-switch-latency=1000']),
+    ("model1", "im2col", ['-switch-latency=1000']),
+    ("model1", "kmeans", ['-switch-latency=1000']),
+    ("model1", "matrixmultiplication", ['-switch-latency=1000']),
+    ("model1", "matrixtranspose", ['-switch-latency=1000']),
+    ("model1", "nbody", ['-switch-latency=1000']),
+    ("model1", "nw", ['-switch-latency=1000']),
+    ("model1", "pagerank", ['-switch-latency=1000']),
+    ("model1", "relu", ['-switch-latency=1000']),
+    ("model1", "simpleconvolution", ['-switch-latency=1000']),
+    ("model1", "spmv", ['-switch-latency=1000']),
+    ("model1", "stencil2d", ['-switch-latency=1000']),
+
     # ("model2", "aes"),
     # ("model2", "atax"),
     # ("model2", "bicg"),
@@ -166,11 +250,13 @@ exps = [
     # ("model3", "stencil2d"),
 ]
 
+output_dir = ""
+
 
 def run_exp(exp):
     try:
         cwd = os.getcwd()
-        file_name = f'{exp[0]}_{exp[1]}_{"_".join(exp[2])}'
+        file_name = f'{output_dir}/{exp[0]}_{exp[1]}_{"_".join(exp[2])}'
         metic_file_name = file_name + '_metrics'
         cmd = f"{cwd}/{exp[0]}/{exp[0]} -benchmark={exp[1]} -timing " + \
             "-magic-memory-copy -report-all " + \
@@ -202,12 +288,26 @@ def run_exp(exp):
             print("Executed ", cmd, ", time ", elapsed_time)
 
         out_file.close()
+
     except Exception as e:
         print(e)
 
 
+def create_output_dir():
+    global output_dir
+    output_dir = f'results/{datetime.now().strftime("%Y-%m-%d-%H-%M-%S")}'
+
+    if not os.path.exists('results'):
+        os.makedirs('results')
+
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+
+
 def main():
     cwd = os.getcwd()
+
+    create_output_dir()
 
     process = subprocess.Popen("cd model1 && go build", shell=True, cwd=cwd)
     process.wait()
@@ -218,7 +318,7 @@ def main():
     process = subprocess.Popen("cd model3 && go build", shell=True, cwd=cwd)
     process.wait()
 
-    tp = ThreadPool(32)
+    tp = ThreadPool(48)
     for exp in exps:
         tp.apply_async(run_exp, args=(exp, ))
 

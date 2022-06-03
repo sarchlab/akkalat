@@ -20,3 +20,5 @@
 *.pdf
 *.debug
 __debug_bin
+
+results
