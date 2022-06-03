@@ -19,6 +19,9 @@
 .DS_Store
 *.pdf
 *.debug
-__debug_bin
+
 
 results
+*.log
+__debug_bin
+
