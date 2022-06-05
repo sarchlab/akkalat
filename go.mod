@@ -2,10 +2,10 @@ module github.com/sarchlab/akkalab
 
 require (
 	github.com/tebeka/atexit v0.3.0
-	gitlab.com/akita/akita/v3 v3.0.0-alpha.11
+	gitlab.com/akita/akita/v3 v3.0.0-alpha.12
 	gitlab.com/akita/mem/v3 v3.0.0-alpha.4
-	gitlab.com/akita/mgpusim/v3 v3.0.0-alpha.1
-	gitlab.com/akita/noc/v3 v3.0.0-alpha.3
+	gitlab.com/akita/mgpusim/v3 v3.0.0-alpha.3
+	gitlab.com/akita/noc/v3 v3.0.0-alpha.6
 )
 
 require (
@@ -31,9 +31,9 @@ require (
 	gonum.org/v1/gonum v0.9.0 // indirect
 )
 
-replace gitlab.com/akita/mgpusim/v3 => ../mgpusim
+// replace gitlab.com/akita/mgpusim/v3 => ../mgpusim
 
-replace gitlab.com/akita/noc/v3 => ../noc
+// replace gitlab.com/akita/noc/v3 => ../noc
 
 // replace gitlab.com/akita/mem/v3 => ../mem
 

@@ -559,7 +559,7 @@ func (b *R9NanoGPUBuilder) buildL2Caches() {
 			b.numMemoryBank,
 			i,
 		).Build(cacheName)
-		b.l2rCaches = append(b.l2Caches, l2)
+		b.l2rCaches = append(b.l2rCaches, l2)
 		b.gpu.L2Caches = append(b.gpu.L2Caches, l2)
 
 		if b.enableVisTracing {

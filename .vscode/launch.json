@@ -17,16 +17,15 @@
 			"type": "go",
 			"request": "launch",
 			"mode": "auto",
-			"program": "${workspaceFolder}/model1",
+			"program": "${workspaceFolder}/model1_separate_cache/",
 			"args": [
 				"-timing",
 				"-magic-memory-copy",
 				"-benchmark=fir",
 				"-switch-latency=50",
 				"-report-all",
-				"-trace-vis",
 			],
-			"envFile": "${workspaceFolder}/../.env",
+			// "envFile": "${workspaceFolder}/../.env",
 		},
 		{
 			"name": "PageRank",
