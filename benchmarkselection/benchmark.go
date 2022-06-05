@@ -66,8 +66,8 @@ func SelectBenchmark(name string, driver *driver.Driver) benchmarks.Benchmark {
 		benchmark = fastwalshtransform
 	case "fir":
 		fir := fir.NewBenchmark(driver)
-		// fir.Length = 10485760
-		fir.Length = 65536
+		fir.Length = 10485760
+		// fir.Length = 65536
 		benchmark = fir
 	case "fft":
 		fft := fft.NewBenchmark(driver)
