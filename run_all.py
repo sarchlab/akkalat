@@ -209,6 +209,7 @@ exps = [
     ("model1_separate_cache", "spmv", ['-switch-latency=1000']),
     ("model1_separate_cache", "stencil2d", ['-switch-latency=1000']),
 
+
     # ("model2", "aes"),
     # ("model2", "atax"),
     # ("model2", "bicg"),
