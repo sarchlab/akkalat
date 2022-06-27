@@ -4,6 +4,28 @@ from multiprocessing.pool import ThreadPool
 from datetime import datetime
 
 exps = [
+    ("model1_direct_conn", "aes", []),
+    ("model1_direct_conn", "atax", []),
+    ("model1_direct_conn", "bicg", []),
+    ("model1_direct_conn", "bitonicsort", []),
+    ("model1_direct_conn", "conv2d", []),
+    ("model1_direct_conn", "fastwalshtransform", []),
+    ("model1_direct_conn", "fir", []),
+    ("model1_direct_conn", "fft", []),
+    ("model1_direct_conn", "floydwarshall", []),
+    ("model1_direct_conn", "im2col", []),
+    ("model1_direct_conn", "kmeans", []),
+    ("model1_direct_conn", "matrixmultiplication", []),
+    ("model1_direct_conn", "matrixtranspose", []),
+    ("model1_direct_conn", "nbody", []),
+    ("model1_direct_conn", "nw", []),
+    ("model1_direct_conn", "pagerank", []),
+    ("model1_direct_conn", "relu", []),
+    ("model1_direct_conn", "simpleconvolution", []),
+    ("model1_direct_conn", "spmv", []),
+    ("model1_direct_conn", "stencil2d", []),
+
+
     # ("model1_separate_cache", "aes", ['-switch-latency=1']),
     # ("model1_separate_cache", "atax", ['-switch-latency=1']),
     # ("model1_separate_cache", "bicg", ['-switch-latency=1']),
