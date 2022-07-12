@@ -30,6 +30,7 @@ type R9NanoPlatformBuilder struct {
 	numCUPerSA            int
 	useMagicMemoryCopy    bool
 	log2PageSize          uint64
+	bandwidth             int
 	switchLatency         int
 
 	engine    sim.Engine
@@ -112,6 +113,14 @@ func (b R9NanoPlatformBuilder) WithMonitor(
 // WithMagicMemoryCopy uses global storage as memory components
 func (b R9NanoPlatformBuilder) WithMagicMemoryCopy() R9NanoPlatformBuilder {
 	b.useMagicMemoryCopy = true
+	return b
+}
+
+// WithBandwidth sets the bandwidth between adjacent GPUs in the unit of 16GB/s.
+func (b R9NanoPlatformBuilder) WithBandwidth(
+	bandwidth int,
+) R9NanoPlatformBuilder {
+	b.bandwidth = bandwidth
 	return b
 }
 
@@ -235,7 +244,7 @@ func (b R9NanoPlatformBuilder) createConnection(
 		WithEngine(engine).
 		WithFreq(1 * sim.GHz).
 		WithFlitSize(16).
-		WithBandwidth(1).
+		WithBandwidth(float64(b.bandwidth)).
 		WithSwitchLatency(b.switchLatency)
 
 	if b.traceVis {

@@ -2,10 +2,10 @@ module github.com/sarchlab/akkalab
 
 require (
 	github.com/tebeka/atexit v0.3.0
-	gitlab.com/akita/akita/v3 v3.0.0-alpha.12
-	gitlab.com/akita/mem/v3 v3.0.0-alpha.4
-	gitlab.com/akita/mgpusim/v3 v3.0.0-alpha.3
-	gitlab.com/akita/noc/v3 v3.0.0-alpha.6
+	gitlab.com/akita/akita/v3 v3.0.0-alpha.15
+	gitlab.com/akita/mem/v3 v3.0.0-alpha.5
+	gitlab.com/akita/mgpusim/v3 v3.0.0-alpha.6
+	gitlab.com/akita/noc/v3 v3.0.0-alpha.7
 )
 
 require (
@@ -18,7 +18,7 @@ require (
 	github.com/klauspost/compress v1.14.4 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	github.com/rs/xid v1.3.0 // indirect
-	github.com/syifan/goseth v0.0.4 // indirect
+	github.com/syifan/goseth v0.1.1 // indirect
 	github.com/xdg-go/pbkdf2 v1.0.0 // indirect
 	github.com/xdg-go/scram v1.1.0 // indirect
 	github.com/xdg-go/stringprep v1.0.2 // indirect
