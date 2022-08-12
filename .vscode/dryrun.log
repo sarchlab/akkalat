@@ -1,6 +1,6 @@
 make --dry-run --always-make --keep-going --print-directory
-make: Entering directory `/Users/yifan/dev/src/github.com/sarchlab/akkalab'
-make: Leaving directory `/Users/yifan/dev/src/github.com/sarchlab/akkalab'
+make: Entering directory `/Users/yifan/dev/src/github.com/sarchlab/akkalat'
+make: Leaving directory `/Users/yifan/dev/src/github.com/sarchlab/akkalat'
  
 make: *** No targets specified and no makefile found.  Stop.
 

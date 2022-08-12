@@ -32,6 +32,7 @@ type R9NanoPlatformBuilder struct {
 	log2PageSize          uint64
 	bandwidth             int
 	switchLatency         int
+	maxNumHops            int
 
 	engine    sim.Engine
 	visTracer tracing.Tracer
@@ -53,6 +54,7 @@ func MakeR9NanoBuilder() R9NanoPlatformBuilder {
 		switchLatency:     10,
 		numSAPerGPU:       8,
 		numCUPerSA:        4,
+		maxNumHops:        -1,
 	}
 	return b
 }
@@ -129,6 +131,15 @@ func (b R9NanoPlatformBuilder) WithSwitchLatency(
 	latency int,
 ) R9NanoPlatformBuilder {
 	b.switchLatency = latency
+	return b
+}
+
+// WithMaxNumHops sets the maximum number of hops that a flit can travel in the
+// mesh network.
+func (b *R9NanoPlatformBuilder) WithMaxNumHops(
+	n int,
+) *R9NanoPlatformBuilder {
+	b.maxNumHops = n
 	return b
 }
 
@@ -245,7 +256,8 @@ func (b R9NanoPlatformBuilder) createConnection(
 		WithFreq(1 * sim.GHz).
 		WithFlitSize(16).
 		WithBandwidth(float64(b.bandwidth)).
-		WithSwitchLatency(b.switchLatency)
+		WithSwitchLatency(b.switchLatency).
+		WithMaxNumHop(b.maxNumHops)
 
 	if b.traceVis {
 		connector = connector.WithVisTracer(b.visTracer)
