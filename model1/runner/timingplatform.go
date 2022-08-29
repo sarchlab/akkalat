@@ -136,9 +136,9 @@ func (b R9NanoPlatformBuilder) WithSwitchLatency(
 
 // WithMaxNumHops sets the maximum number of hops that a flit can travel in the
 // mesh network.
-func (b *R9NanoPlatformBuilder) WithMaxNumHops(
+func (b R9NanoPlatformBuilder) WithMaxNumHops(
 	n int,
-) *R9NanoPlatformBuilder {
+) R9NanoPlatformBuilder {
 	b.maxNumHops = n
 	return b
 }
