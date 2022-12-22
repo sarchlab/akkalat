@@ -68,7 +68,6 @@ func SelectBenchmark(name string, driver *driver.Driver) benchmarks.Benchmark {
 		fir := fir.NewBenchmark(driver)
 		// fir.Length = 10485760
 		fir.Length = 1048576
-		// fir.Length = 1024 * 100
 		benchmark = fir
 	case "fft":
 		fft := fft.NewBenchmark(driver)
