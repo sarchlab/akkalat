@@ -128,7 +128,7 @@ func (b R9NanoPlatformBuilder) WithSwitchLatency(
 }
 
 // Build builds a platform with R9Nano GPUs.
-func (b R9NanoPlatformBuilder) Build(numOfHops int) *Platform {
+func (b R9NanoPlatformBuilder) Build(maxNumHops int) *Platform {
 	b.engine = b.createEngine()
 	if b.monitor != nil {
 		b.monitor.RegisterEngine(b.engine)
@@ -174,7 +174,7 @@ func (b R9NanoPlatformBuilder) Build(numOfHops int) *Platform {
 	b.createGPUs(
 		connector,
 		gpuBuilder, gpuDriver,
-		rdmaAddressTable, pmcAddressTable, numOfHops)
+		rdmaAddressTable, pmcAddressTable, maxNumHops)
 
 	connector.EstablishNetwork()
 
@@ -204,7 +204,7 @@ func (b *R9NanoPlatformBuilder) createGPUs(
 	gpuDriver *driver.Driver,
 	rdmaAddressTable *mem.AddressBoundary,
 	pmcAddressTable *mem.BankedLowModuleFinder,
-	numOfHops int,
+	maxNumHops int,
 ) {
 	for y := 0; y < b.tileHeight; y++ {
 		for x := 0; x < b.tileWidth; x++ {
@@ -220,7 +220,7 @@ func (b *R9NanoPlatformBuilder) createGPUs(
 				continue
 			}
 			gpuID := b.convertCoodrinateToGPUID(x, y)
-			b.gpus[gpuID].RDMAEngine.RemoteRDMAAddressTable = b.setRDMAAddrTable(x, y, 9)
+			b.gpus[gpuID-1].RDMAEngine.RemoteRDMAAddressTable = b.setRDMAAddrTable(x, y, maxNumHops)
 		}
 	}
 }
@@ -238,7 +238,7 @@ func (b R9NanoPlatformBuilder) createRDMAAddrTable() *mem.AddressBoundary {
 	// rdmaAddressTable.BankSize = 4 * mem.GB
 	rdmaAddressTable.LowAddr = append(rdmaAddressTable.LowAddr, uint64(0))
 	rdmaAddressTable.HighAddr = append(rdmaAddressTable.HighAddr, uint64(4*mem.GB))
-	rdmaAddressTable.Port = append(rdmaAddressTable.Port, nil)
+	rdmaAddressTable.LowModules = append(rdmaAddressTable.LowModules, nil)
 	return rdmaAddressTable
 }
 
@@ -401,7 +401,7 @@ func (b *R9NanoPlatformBuilder) createGPU(
 
 // func (b *R9NanoPlatformBuilder) configRDMAEngine(
 // 	gpu *GPU,
-// 	addrTable *mem.AddressBoundary,
+// 	addrTable *mem.BankedLowModuleFinder,
 // ) {
 // 	gpu.RDMAEngine.RemoteRDMAAddressTable = addrTable
 // 	addrTable.LowModules = append(
@@ -425,13 +425,13 @@ func (b *R9NanoPlatformBuilder) configPMC(
 //----------------------------------------MaxNumHops--------------------------------//
 func (b *R9NanoPlatformBuilder) convertGPUIDToCoodrinate(gpuID int) (int, int) {
 	var x, y int
-	cpuLocation := ((b.tileWidth + 1) + (b.tileHeight + 1) - 1) / 2
-	if gpuID < cpuLocation {
-		y = (gpuID - 1) / (b.tileWidth + 1)
-		x = (gpuID - 1) % (b.tileWidth + 1)
+	cpuLocation := ((b.tileWidth)*(b.tileHeight) - 1) / 2
+	if gpuID <= cpuLocation {
+		y = (gpuID - 1) / (b.tileWidth)
+		x = (gpuID - 1) % (b.tileWidth)
 	} else {
-		y = gpuID / (b.tileWidth + 1)
-		x = gpuID % (b.tileWidth + 1)
+		y = gpuID / (b.tileWidth)
+		x = gpuID % (b.tileWidth)
 	}
 	return x, y
 }
@@ -439,16 +439,16 @@ func (b *R9NanoPlatformBuilder) convertGPUIDToCoodrinate(gpuID int) (int, int) {
 func (b *R9NanoPlatformBuilder) convertCoodrinateToGPUID(x int, y int) int {
 	var gpuID int
 	if y < b.tileHeight/2 {
-		gpuID = y*(b.tileWidth+1) + x + 1
+		gpuID = y*(b.tileWidth) + x + 1
 	}
 	if y == b.tileHeight/2 && x < b.tileWidth/2 {
-		gpuID = y*(b.tileWidth+1) + x + 1
+		gpuID = y*(b.tileWidth) + x + 1
 	}
 	if y == b.tileHeight/2 && x > b.tileWidth/2 {
-		gpuID = y*(b.tileWidth+1) + x
+		gpuID = y*(b.tileWidth) + x
 	}
 	if y > b.tileHeight/2 {
-		gpuID = y*(b.tileWidth+1) + x
+		gpuID = y*(b.tileWidth) + x
 	}
 	return gpuID
 }
@@ -532,10 +532,18 @@ func (b *R9NanoPlatformBuilder) sellectPortGPU(gpuLocationX int, gpuLocationY in
 	if gpuLocationX == 0 && gpuLocationY == 0 {
 		downPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListDown)
 		rightPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListRight)
-		downPort = downPortCandidate[0]
+		for _, downPorts := range downPortCandidate {
+			if downPorts == 0 {
+				continue
+			} else {
+				downPort = downPorts
+			}
+		}
 		for _, rightPorts := range rightPortCandidate {
 			if rightPorts == downPort {
 				continue
+			} else if rightPorts == 0 {
+				continue
 			} else {
 				rightPort = rightPorts
 				break
@@ -543,13 +551,21 @@ func (b *R9NanoPlatformBuilder) sellectPortGPU(gpuLocationX int, gpuLocationY in
 		}
 	}
 
-	if gpuLocationX == b.tileWidth && gpuLocationY == 0 {
+	if gpuLocationX == (b.tileWidth-1) && gpuLocationY == 0 {
 		downPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListDown)
 		leftPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListLeft)
-		downPort = downPortCandidate[0]
+		for _, downPorts := range downPortCandidate {
+			if downPorts == 0 {
+				continue
+			} else {
+				downPort = downPorts
+			}
+		}
 		for _, leftPorts := range leftPortCandidate {
 			if leftPorts == downPort {
 				continue
+			} else if leftPorts == 0 {
+				continue
 			} else {
 				leftPort = leftPorts
 				break
@@ -557,12 +573,21 @@ func (b *R9NanoPlatformBuilder) sellectPortGPU(gpuLocationX int, gpuLocationY in
 		}
 	}
 
-	if gpuLocationX == 0 && gpuLocationY == b.tileHeight {
+	if gpuLocationX == 0 && gpuLocationY == (b.tileHeight-1) {
 		upPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListUp)
 		rightPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListRight)
 		upPort = upPortCandidate[0]
+		for _, upPorts := range upPortCandidate {
+			if upPorts == 0 {
+				continue
+			} else {
+				upPort = upPorts
+			}
+		}
 		for _, rightPorts := range rightPortCandidate {
 			if rightPorts == upPort {
+				continue
+			} else if rightPorts == 0 {
 				continue
 			} else {
 				rightPort = rightPorts
@@ -571,12 +596,21 @@ func (b *R9NanoPlatformBuilder) sellectPortGPU(gpuLocationX int, gpuLocationY in
 		}
 	}
 
-	if gpuLocationX == b.tileWidth && gpuLocationY == b.tileHeight {
+	if gpuLocationX == (b.tileWidth-1) && gpuLocationY == (b.tileHeight-1) {
 		upPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListUp)
 		leftPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListLeft)
 		upPort = upPortCandidate[0]
+		for _, upPorts := range upPortCandidate {
+			if upPorts == 0 {
+				continue
+			} else {
+				upPort = upPorts
+			}
+		}
 		for _, leftPorts := range leftPortCandidate {
 			if leftPorts == upPort {
+				continue
+			} else if leftPorts == 0 {
 				continue
 			} else {
 				leftPort = leftPorts
@@ -585,13 +619,21 @@ func (b *R9NanoPlatformBuilder) sellectPortGPU(gpuLocationX int, gpuLocationY in
 		}
 	}
 
-	if gpuLocationX != 0 && gpuLocationX != b.tileWidth && gpuLocationY == 0 {
+	if gpuLocationX != 0 && gpuLocationX != (b.tileWidth-1) && gpuLocationY == 0 {
 		leftPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListLeft)
 		rightPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListRight)
 		downPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListDown)
-		leftPort = leftPortCandidate[0]
+		for _, leftPorts := range leftPortCandidate {
+			if leftPorts == 0 {
+				continue
+			} else {
+				leftPort = leftPorts
+			}
+		}
 		for _, rightPorts := range rightPortCandidate {
 			if rightPorts == leftPort {
+				continue
+			} else if rightPorts == 0 {
 				continue
 			} else {
 				rightPort = rightPorts
@@ -602,20 +644,39 @@ func (b *R9NanoPlatformBuilder) sellectPortGPU(gpuLocationX int, gpuLocationY in
 		for _, downPorts := range downPortCandidate {
 			if downPorts == leftPort || downPorts == rightPort {
 				continue
+			} else if downPorts == 0 {
+				continue
 			} else {
 				downPort = downPorts
 				break
 			}
 		}
+		if leftPort == 0 {
+			leftPort = downPort
+		}
+		if rightPort == 0 {
+			rightPort = downPort
+		}
+		if downPort == 0 {
+			downPort = leftPort
+		}
 	}
 
-	if gpuLocationX != 0 && gpuLocationX != b.tileWidth && gpuLocationY == b.tileHeight {
+	if gpuLocationX != 0 && gpuLocationX != (b.tileWidth-1) && gpuLocationY == (b.tileHeight-1) {
 		leftPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListLeft)
 		rightPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListRight)
 		upPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListUp)
-		leftPort = leftPortCandidate[0]
+		for _, leftPorts := range leftPortCandidate {
+			if leftPorts == 0 {
+				continue
+			} else {
+				leftPort = leftPorts
+			}
+		}
 		for _, rightPorts := range rightPortCandidate {
 			if rightPorts == leftPort {
+				continue
+			} else if rightPorts == 0 {
 				continue
 			} else {
 				rightPort = rightPorts
@@ -626,20 +687,40 @@ func (b *R9NanoPlatformBuilder) sellectPortGPU(gpuLocationX int, gpuLocationY in
 		for _, upPorts := range upPortCandidate {
 			if upPorts == leftPort || upPorts == rightPort {
 				continue
+			} else if upPorts == 0 {
+				continue
 			} else {
 				upPort = upPorts
 				break
 			}
 		}
+		if leftPort == 0 {
+			leftPort = upPort
+		}
+		if rightPort == 0 {
+			rightPort = upPort
+		}
+		if upPort == 0 {
+			upPort = leftPort
+		}
 	}
 
-	if gpuLocationY != 0 && gpuLocationY != b.tileHeight && gpuLocationX == 0 {
+	if gpuLocationY != 0 && gpuLocationY != (b.tileHeight-1) && gpuLocationX == 0 {
 		upPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListUp)
 		downPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListDown)
 		rightPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListRight)
 		upPort = upPortCandidate[0]
+		for _, upPorts := range upPortCandidate {
+			if upPorts == 0 {
+				continue
+			} else {
+				upPort = upPorts
+			}
+		}
 		for _, downPorts := range downPortCandidate {
 			if downPorts == leftPort {
+				continue
+			} else if downPorts == 0 {
 				continue
 			} else {
 				downPort = downPorts
@@ -650,20 +731,40 @@ func (b *R9NanoPlatformBuilder) sellectPortGPU(gpuLocationX int, gpuLocationY in
 		for _, rightPorts := range rightPortCandidate {
 			if rightPorts == upPort || rightPorts == downPort {
 				continue
+			} else if rightPorts == 0 {
+				continue
 			} else {
 				rightPort = rightPorts
 				break
 			}
 		}
+		if upPort == 0 {
+			upPort = rightPort
+		}
+		if rightPort == 0 {
+			leftPort = upPort
+		}
+		if downPort == 0 {
+			downPort = rightPort
+		}
 	}
 
-	if gpuLocationY != 0 && gpuLocationY != b.tileHeight && gpuLocationX == b.tileWidth {
+	if gpuLocationY != 0 && gpuLocationY != (b.tileHeight-1) && gpuLocationX == (b.tileWidth-1) {
 		upPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListUp)
 		downPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListDown)
 		leftPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListLeft)
 		upPort = upPortCandidate[0]
+		for _, upPorts := range upPortCandidate {
+			if upPorts == 0 {
+				continue
+			} else {
+				upPort = upPorts
+			}
+		}
 		for _, downPorts := range downPortCandidate {
 			if downPorts == leftPort {
+				continue
+			} else if downPorts == 0 {
 				continue
 			} else {
 				downPort = downPorts
@@ -673,22 +774,42 @@ func (b *R9NanoPlatformBuilder) sellectPortGPU(gpuLocationX int, gpuLocationY in
 
 		for _, leftPorts := range leftPortCandidate {
 			if leftPorts == upPort || leftPorts == downPort {
+				continue
+			} else if leftPorts == 0 {
 				continue
 			} else {
 				leftPort = leftPorts
 				break
 			}
 		}
+		if upPort == 0 {
+			upPort = leftPort
+		}
+		if leftPort == 0 {
+			leftPort = upPort
+		}
+		if downPort == 0 {
+			downPort = leftPort
+		}
 	}
 
-	if gpuLocationY != 0 && gpuLocationY != b.tileHeight && gpuLocationX != b.tileWidth && gpuLocationX != 0 {
+	if gpuLocationY != 0 && gpuLocationY != (b.tileHeight-1) && gpuLocationX != (b.tileWidth-1) && gpuLocationX != 0 {
 		upPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListUp)
 		downPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListDown)
 		leftPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListLeft)
 		rightPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListRight)
-		upPort = upPortCandidate[0]
+		// upPort = upPortCandidate[0]
+		for _, upPorts := range upPortCandidate {
+			if upPorts == 0 {
+				continue
+			} else {
+				upPort = upPorts
+			}
+		}
 		for _, downPorts := range downPortCandidate {
 			if downPorts == leftPort {
+				continue
+			} else if downPorts == 0 {
 				continue
 			} else {
 				downPort = downPorts
@@ -698,6 +819,8 @@ func (b *R9NanoPlatformBuilder) sellectPortGPU(gpuLocationX int, gpuLocationY in
 
 		for _, leftPorts := range leftPortCandidate {
 			if leftPorts == upPort || leftPorts == downPort {
+				continue
+			} else if leftPorts == 0 {
 				continue
 			} else {
 				leftPort = leftPorts
@@ -708,10 +831,25 @@ func (b *R9NanoPlatformBuilder) sellectPortGPU(gpuLocationX int, gpuLocationY in
 		for _, rightPorts := range rightPortCandidate {
 			if rightPorts == upPort || rightPorts == downPort || rightPorts == leftPort {
 				continue
+			} else if rightPorts == 0 {
+				continue
 			} else {
 				rightPort = rightPorts
 				break
 			}
+		}
+
+		if upPort == 0 {
+			upPort = rightPort
+		}
+		if rightPort == 0 {
+			rightPort = upPort
+		}
+		if downPort == 0 {
+			downPort = leftPort
+		}
+		if leftPort == 0 {
+			leftPort = downPort
 		}
 	}
 
@@ -734,41 +872,41 @@ func (b *R9NanoPlatformBuilder) setConnerRDMATable(
 	rdmaAddrTable := mem.AddressBoundary{}
 	// newrdmaAddrTable := mem.NewAddressBoundary
 	gpuMatrix := b.gpuMatrix()
-	for _, gpu := range gpuMatrix {
+	for i, gpu := range gpuMatrix {
 		assignedgpuID := gpu.gpuID
 		x, y := b.convertGPUIDToCoodrinate(assignedgpuID)
 		hops := int(math.Abs(float64(x-gpuLocationX) + math.Abs(float64(y-gpuLocationY))))
 		if hops <= maxNumHops {
-			rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID)*mem.GB)
-			rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64(assignedgpuID+1)*mem.GB)
-			rdmaAddrTable.Port = append(rdmaAddrTable.Port, b.gpus[assignedgpuID].RDMAEngine.ToOutside)
+			rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+			rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+			rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[i].RDMAEngine.ToOutside)
 		} else {
 			if b.isContain(assignedgpuID, gpuCoodrinateSide1) && !b.isContain(assignedgpuID, gpuCoodrinateSide2) {
-				rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID)*mem.GB)
-				rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64(assignedgpuID+1)*mem.GB)
-				rdmaAddrTable.Port = append(rdmaAddrTable.Port, b.gpus[gpuPort1].RDMAEngine.ToOutside)
+				rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+				rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+				rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort1-1].RDMAEngine.ToOutside)
 				continue
 			}
 
 			if !b.isContain(assignedgpuID, gpuCoodrinateSide1) && b.isContain(assignedgpuID, gpuCoodrinateSide2) {
-				rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID)*mem.GB)
-				rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64(assignedgpuID+1)*mem.GB)
-				rdmaAddrTable.Port = append(rdmaAddrTable.Port, b.gpus[gpuPort2].RDMAEngine.ToOutside)
+				rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+				rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+				rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort2-1].RDMAEngine.ToOutside)
 				continue
 			}
 
 			if b.isContain(assignedgpuID, gpuCoodrinateSide1) && b.isContain(assignedgpuID, gpuCoodrinateSide2) {
 				rand := rand.Intn(2)
 				if rand == 0 {
-					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID)*mem.GB)
-					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64(assignedgpuID+1)*mem.GB)
-					rdmaAddrTable.Port = append(rdmaAddrTable.Port, b.gpus[gpuPort1].RDMAEngine.ToOutside)
+					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort1-1].RDMAEngine.ToOutside)
 					continue
 				}
 				if rand == 1 {
-					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID)*mem.GB)
-					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64(assignedgpuID+1)*mem.GB)
-					rdmaAddrTable.Port = append(rdmaAddrTable.Port, b.gpus[gpuPort2].RDMAEngine.ToOutside)
+					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort2-1].RDMAEngine.ToOutside)
 					continue
 				}
 			}
@@ -788,37 +926,37 @@ func (b *R9NanoPlatformBuilder) setSideRDMAAddrTable(
 ) mem.AddressBoundary {
 	rdmaAddrTable := mem.AddressBoundary{}
 	gpuMatrix := b.gpuMatrix()
-	for _, gpu := range gpuMatrix {
+	for i, gpu := range gpuMatrix {
 		assignedgpuID := gpu.gpuID
 		x, y := b.convertGPUIDToCoodrinate(assignedgpuID)
 		hops := int(math.Abs(float64(x-gpuLocationX) + math.Abs(float64(y-gpuLocationY))))
 		if hops <= maxNumHops {
-			rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID)*mem.GB)
-			rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64(assignedgpuID+1)*mem.GB)
-			rdmaAddrTable.Port = append(rdmaAddrTable.Port, b.gpus[assignedgpuID].RDMAEngine.ToOutside)
+			rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+			rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+			rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[i].RDMAEngine.ToOutside)
 		} else {
 			if b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
 				!b.isContain(assignedgpuID, gpuCoodrinateSide2) &&
 				!b.isContain(assignedgpuID, gpuCoodrinateSide3) {
-				rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID)*mem.GB)
-				rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64(assignedgpuID+1)*mem.GB)
-				rdmaAddrTable.Port = append(rdmaAddrTable.Port, b.gpus[gpuPort1].RDMAEngine.ToOutside)
+				rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+				rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+				rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort1-1].RDMAEngine.ToOutside)
 			}
 
 			if !b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
 				b.isContain(assignedgpuID, gpuCoodrinateSide2) &&
 				!b.isContain(assignedgpuID, gpuCoodrinateSide3) {
-				rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID)*mem.GB)
-				rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64(assignedgpuID+1)*mem.GB)
-				rdmaAddrTable.Port = append(rdmaAddrTable.Port, b.gpus[gpuPort2].RDMAEngine.ToOutside)
+				rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+				rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+				rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort2-1].RDMAEngine.ToOutside)
 			}
 
 			if !b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
 				!b.isContain(assignedgpuID, gpuCoodrinateSide2) &&
 				b.isContain(assignedgpuID, gpuCoodrinateSide3) {
-				rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID)*mem.GB)
-				rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64(assignedgpuID+1)*mem.GB)
-				rdmaAddrTable.Port = append(rdmaAddrTable.Port, b.gpus[gpuPort3].RDMAEngine.ToOutside)
+				rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+				rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+				rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort3-1].RDMAEngine.ToOutside)
 			}
 
 			if b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
@@ -826,14 +964,14 @@ func (b *R9NanoPlatformBuilder) setSideRDMAAddrTable(
 				!b.isContain(assignedgpuID, gpuCoodrinateSide3) {
 				rand := rand.Intn(2)
 				if rand == 0 {
-					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID)*mem.GB)
-					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64(assignedgpuID+1)*mem.GB)
-					rdmaAddrTable.Port = append(rdmaAddrTable.Port, b.gpus[gpuPort1].RDMAEngine.ToOutside)
+					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort1-1].RDMAEngine.ToOutside)
 				}
 				if rand == 1 {
-					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID)*mem.GB)
-					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64(assignedgpuID+1)*mem.GB)
-					rdmaAddrTable.Port = append(rdmaAddrTable.Port, b.gpus[gpuPort2].RDMAEngine.ToOutside)
+					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort2-1].RDMAEngine.ToOutside)
 				}
 			}
 			if !b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
@@ -841,14 +979,14 @@ func (b *R9NanoPlatformBuilder) setSideRDMAAddrTable(
 				b.isContain(assignedgpuID, gpuCoodrinateSide3) {
 				rand := rand.Intn(2)
 				if rand == 0 {
-					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID)*mem.GB)
-					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64(assignedgpuID+1)*mem.GB)
-					rdmaAddrTable.Port = append(rdmaAddrTable.Port, b.gpus[gpuPort2].RDMAEngine.ToOutside)
+					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort2-1].RDMAEngine.ToOutside)
 				}
 				if rand == 1 {
-					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID)*mem.GB)
-					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64(assignedgpuID+1)*mem.GB)
-					rdmaAddrTable.Port = append(rdmaAddrTable.Port, b.gpus[gpuPort3].RDMAEngine.ToOutside)
+					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort3-1].RDMAEngine.ToOutside)
 				}
 			}
 		}
@@ -869,49 +1007,49 @@ func (b *R9NanoPlatformBuilder) setCenterRDMAAddrTable(
 ) mem.AddressBoundary {
 	rdmaAddrTable := mem.AddressBoundary{}
 	gpuMatrix := b.gpuMatrix()
-	for _, gpu := range gpuMatrix {
+	for i, gpu := range gpuMatrix {
 		assignedgpuID := gpu.gpuID
 		x, y := b.convertGPUIDToCoodrinate(assignedgpuID)
-		hops := int(math.Abs(float64(x-gpuLocationX) + math.Abs(float64(y-gpuLocationY))))
+		hops := int(math.Abs(float64(x-gpuLocationX))) + int(math.Abs(float64(y-gpuLocationY)))
 		if hops <= maxNumHops {
-			rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID)*mem.GB)
-			rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64(assignedgpuID+1)*mem.GB)
-			rdmaAddrTable.Port = append(rdmaAddrTable.Port, b.gpus[assignedgpuID].RDMAEngine.ToOutside)
+			rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+			rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+			rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[i].RDMAEngine.ToOutside)
 		} else {
 			if b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
 				!b.isContain(assignedgpuID, gpuCoodrinateSide2) &&
 				!b.isContain(assignedgpuID, gpuCoodrinateSide3) &&
 				!b.isContain(assignedgpuID, gpuCoodrinateSide4) {
-				rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID)*mem.GB)
-				rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64(assignedgpuID+1)*mem.GB)
-				rdmaAddrTable.Port = append(rdmaAddrTable.Port, b.gpus[gpuPort1].RDMAEngine.ToOutside)
+				rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+				rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+				rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort1-1].RDMAEngine.ToOutside)
 			}
 
 			if !b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
 				b.isContain(assignedgpuID, gpuCoodrinateSide2) &&
 				!b.isContain(assignedgpuID, gpuCoodrinateSide3) &&
 				!b.isContain(assignedgpuID, gpuCoodrinateSide4) {
-				rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID)*mem.GB)
-				rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64(assignedgpuID+1)*mem.GB)
-				rdmaAddrTable.Port = append(rdmaAddrTable.Port, b.gpus[gpuPort2].RDMAEngine.ToOutside)
+				rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+				rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+				rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort2-1].RDMAEngine.ToOutside)
 			}
 
 			if !b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
 				!b.isContain(assignedgpuID, gpuCoodrinateSide2) &&
 				b.isContain(assignedgpuID, gpuCoodrinateSide3) &&
 				!b.isContain(assignedgpuID, gpuCoodrinateSide4) {
-				rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID)*mem.GB)
-				rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64(assignedgpuID+1)*mem.GB)
-				rdmaAddrTable.Port = append(rdmaAddrTable.Port, b.gpus[gpuPort3].RDMAEngine.ToOutside)
+				rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+				rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+				rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort3-1].RDMAEngine.ToOutside)
 			}
 
 			if !b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
 				!b.isContain(assignedgpuID, gpuCoodrinateSide2) &&
 				!b.isContain(assignedgpuID, gpuCoodrinateSide3) &&
 				b.isContain(assignedgpuID, gpuCoodrinateSide4) {
-				rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID)*mem.GB)
-				rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64(assignedgpuID+1)*mem.GB)
-				rdmaAddrTable.Port = append(rdmaAddrTable.Port, b.gpus[gpuPort4].RDMAEngine.ToOutside)
+				rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+				rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+				rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort4-1].RDMAEngine.ToOutside)
 			}
 
 			if b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
@@ -920,14 +1058,14 @@ func (b *R9NanoPlatformBuilder) setCenterRDMAAddrTable(
 				!b.isContain(assignedgpuID, gpuCoodrinateSide4) {
 				rand := rand.Intn(2)
 				if rand == 0 {
-					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID)*mem.GB)
-					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64(assignedgpuID+1)*mem.GB)
-					rdmaAddrTable.Port = append(rdmaAddrTable.Port, b.gpus[gpuPort1].RDMAEngine.ToOutside)
+					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort1-1].RDMAEngine.ToOutside)
 				}
 				if rand == 1 {
-					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID)*mem.GB)
-					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64(assignedgpuID+1)*mem.GB)
-					rdmaAddrTable.Port = append(rdmaAddrTable.Port, b.gpus[gpuPort2].RDMAEngine.ToOutside)
+					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort2-1].RDMAEngine.ToOutside)
 				}
 			}
 			if b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
@@ -936,14 +1074,14 @@ func (b *R9NanoPlatformBuilder) setCenterRDMAAddrTable(
 				b.isContain(assignedgpuID, gpuCoodrinateSide4) {
 				rand := rand.Intn(2)
 				if rand == 0 {
-					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID)*mem.GB)
-					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64(assignedgpuID+1)*mem.GB)
-					rdmaAddrTable.Port = append(rdmaAddrTable.Port, b.gpus[gpuPort1].RDMAEngine.ToOutside)
+					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort1-1].RDMAEngine.ToOutside)
 				}
 				if rand == 1 {
-					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID)*mem.GB)
-					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64(assignedgpuID+1)*mem.GB)
-					rdmaAddrTable.Port = append(rdmaAddrTable.Port, b.gpus[gpuPort4].RDMAEngine.ToOutside)
+					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort4-1].RDMAEngine.ToOutside)
 				}
 			}
 			if !b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
@@ -952,14 +1090,14 @@ func (b *R9NanoPlatformBuilder) setCenterRDMAAddrTable(
 				!b.isContain(assignedgpuID, gpuCoodrinateSide4) {
 				rand := rand.Intn(2)
 				if rand == 0 {
-					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID)*mem.GB)
-					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64(assignedgpuID+1)*mem.GB)
-					rdmaAddrTable.Port = append(rdmaAddrTable.Port, b.gpus[gpuPort2].RDMAEngine.ToOutside)
+					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort2-1].RDMAEngine.ToOutside)
 				}
 				if rand == 1 {
-					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID)*mem.GB)
-					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64(assignedgpuID+1)*mem.GB)
-					rdmaAddrTable.Port = append(rdmaAddrTable.Port, b.gpus[gpuPort3].RDMAEngine.ToOutside)
+					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort3-1].RDMAEngine.ToOutside)
 				}
 			}
 			if !b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
@@ -968,14 +1106,14 @@ func (b *R9NanoPlatformBuilder) setCenterRDMAAddrTable(
 				b.isContain(assignedgpuID, gpuCoodrinateSide4) {
 				rand := rand.Intn(2)
 				if rand == 0 {
-					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID)*mem.GB)
-					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64(assignedgpuID+1)*mem.GB)
-					rdmaAddrTable.Port = append(rdmaAddrTable.Port, b.gpus[gpuPort3].RDMAEngine.ToOutside)
+					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort3-1].RDMAEngine.ToOutside)
 				}
 				if rand == 1 {
-					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID)*mem.GB)
-					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64(assignedgpuID+1)*mem.GB)
-					rdmaAddrTable.Port = append(rdmaAddrTable.Port, b.gpus[gpuPort4].RDMAEngine.ToOutside)
+					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort4-1].RDMAEngine.ToOutside)
 				}
 			}
 		}
@@ -993,32 +1131,32 @@ func (b *R9NanoPlatformBuilder) setRDMAAddrTable(gpuLocationX int, gpuLocationY 
 	if gpuLocationX == 0 && gpuLocationY == 0 {
 		rdmaAddrTable = b.setConnerRDMATable(gpuCoodrinateListDown, gpuCoodrinateListRight, downPort, rightPort, maxNumHops, gpuLocationX, gpuLocationY)
 	}
-	if gpuLocationX == b.tileWidth && gpuLocationY == 0 {
+	if gpuLocationX == (b.tileWidth-1) && gpuLocationY == 0 {
 		rdmaAddrTable = b.setConnerRDMATable(gpuCoodrinateListDown, gpuCoodrinateListLeft, downPort, leftPort, maxNumHops, gpuLocationX, gpuLocationY)
 	}
-	if gpuLocationX == 0 && gpuLocationY == b.tileHeight {
+	if gpuLocationX == 0 && gpuLocationY == (b.tileHeight-1) {
 		rdmaAddrTable = b.setConnerRDMATable(gpuCoodrinateListUp, gpuCoodrinateListRight, upPort, rightPort, maxNumHops, gpuLocationX, gpuLocationY)
 	}
-	if gpuLocationX == b.tileWidth && gpuLocationY == b.tileHeight {
+	if gpuLocationX == (b.tileWidth-1) && gpuLocationY == (b.tileHeight-1) {
 		rdmaAddrTable = b.setConnerRDMATable(gpuCoodrinateListUp, gpuCoodrinateListLeft, upPort, leftPort, maxNumHops, gpuLocationX, gpuLocationY)
 	}
-	if gpuLocationY == 0 && gpuLocationX != 0 && gpuLocationX != b.tileWidth {
+	if gpuLocationY == 0 && gpuLocationX != 0 && gpuLocationX != (b.tileWidth-1) {
 		rdmaAddrTable = b.setSideRDMAAddrTable(gpuCoodrinateListLeft, gpuCoodrinateListDown, gpuCoodrinateListRight, leftPort, downPort, rightPort, maxNumHops, gpuLocationX, gpuLocationY)
 	}
-	if gpuLocationY == b.tileHeight && gpuLocationX != 0 && gpuLocationX != b.tileWidth {
+	if gpuLocationY == (b.tileHeight-1) && gpuLocationX != 0 && gpuLocationX != (b.tileWidth-1) {
 		rdmaAddrTable = b.setSideRDMAAddrTable(gpuCoodrinateListLeft, gpuCoodrinateListUp, gpuCoodrinateListRight, leftPort, upPort, rightPort, maxNumHops, gpuLocationX, gpuLocationY)
 	}
-	if gpuLocationX == 0 && gpuLocationY != 0 && gpuLocationY != b.tileHeight {
+	if gpuLocationX == 0 && gpuLocationY != 0 && gpuLocationY != (b.tileHeight-1) {
 		rdmaAddrTable = b.setSideRDMAAddrTable(gpuCoodrinateListUp, gpuCoodrinateListRight, gpuCoodrinateListDown, upPort, rightPort, downPort, maxNumHops, gpuLocationX, gpuLocationY)
 	}
-	if gpuLocationX == b.tileWidth && gpuLocationY != 0 && gpuLocationY != b.tileHeight {
+	if gpuLocationX == (b.tileWidth-1) && gpuLocationY != 0 && gpuLocationY != (b.tileHeight-1) {
 		rdmaAddrTable = b.setSideRDMAAddrTable(gpuCoodrinateListUp, gpuCoodrinateListLeft, gpuCoodrinateListDown, upPort, leftPort, downPort, maxNumHops, gpuLocationX, gpuLocationY)
 	}
-	if gpuLocationX != 0 && gpuLocationX != b.tileWidth && gpuLocationY != 0 && gpuLocationY != b.tileWidth {
+	if gpuLocationX != 0 && gpuLocationX != (b.tileWidth-1) && gpuLocationY != 0 && gpuLocationY != (b.tileHeight-1) {
 		rdmaAddrTable = b.setCenterRDMAAddrTable(gpuCoodrinateListUp, gpuCoodrinateListRight, gpuCoodrinateListDown, gpuCoodrinateListLeft, upPort, rightPort, downPort, leftPort, maxNumHops, gpuLocationX, gpuLocationY)
 	}
 	newrdmaAddrTable.HighAddr = append(newrdmaAddrTable.HighAddr, rdmaAddrTable.HighAddr...)
 	newrdmaAddrTable.LowAddr = append(newrdmaAddrTable.LowAddr, rdmaAddrTable.LowAddr...)
-	newrdmaAddrTable.Port = append(newrdmaAddrTable.Port, rdmaAddrTable.Port...)
+	newrdmaAddrTable.LowModules = append(newrdmaAddrTable.LowModules, rdmaAddrTable.LowModules...)
 	return newrdmaAddrTable
 }

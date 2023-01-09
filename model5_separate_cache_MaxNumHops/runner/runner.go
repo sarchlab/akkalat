@@ -60,7 +60,7 @@ var magicMemoryCopy = flag.Bool("magic-memory-copy", false,
 	"Copy data from CPU directly to global memory")
 var switchLatencyFlag = flag.Int("switch-latency", 10,
 	"The latency of the switch")
-var maxNumHopsFlag = flag.Int("max-num-hops", 10, "Max Number of Hops")
+var maxNumHopsFlag = flag.Int("max-num-hops", 10, "max number of hops")
 
 type verificationPreEnablingBenchmark interface {
 	benchmarks.Benchmark

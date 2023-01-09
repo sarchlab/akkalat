@@ -286,7 +286,6 @@ func (b *R9NanoGPUBuilder) connectCP() {
 }
 
 func (b *R9NanoGPUBuilder) connectL1ToL2() {
-	// hops:= 2
 	lowModuleFinder := mem.NewInterleavedLowModuleFinder(
 		1 << b.log2MemoryBankInterleavingSize)
 	lowModuleFinder.ModuleForOtherAddresses = b.rdmaEngine.ToL1
