@@ -27,14 +27,14 @@ require (
 	go.mongodb.org/mongo-driver v1.8.4 // indirect
 	golang.org/x/crypto v0.0.0-20220214200702-86341886e292 // indirect
 	golang.org/x/sync v0.0.0-20210220032951-036812b2e83c // indirect
-	golang.org/x/text v0.3.7 // indirect
+	golang.org/x/text v0.4.0 // indirect
 	gonum.org/v1/gonum v0.9.0 // indirect
 )
 
-// replace gitlab.com/akita/mgpusim/v3 => ../mgpusim
+replace gitlab.com/akita/mgpusim/v3 => ../mgpusim
 
 replace gitlab.com/akita/noc/v3 => ../noc
 
-// replace gitlab.com/akita/mem/v3 => ../mem
+replace gitlab.com/akita/mem/v3 => ../mem
 
 go 1.18

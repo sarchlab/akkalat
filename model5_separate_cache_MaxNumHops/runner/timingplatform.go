@@ -198,11 +198,18 @@ func (b *R9NanoPlatformBuilder) createVisTracer() {
 	b.visTracer = tracer
 }
 
+type addressMappingEntry struct {
+	gpuID             int
+	x, y              int
+	lowAddr, highAddr uint64
+	port              sim.Port
+}
+
 func (b *R9NanoPlatformBuilder) createGPUs(
 	connector *mesh.Connector,
 	gpuBuilder R9NanoGPUBuilder,
 	gpuDriver *driver.Driver,
-	rdmaAddressTable *mem.AddressBoundary,
+	rdmaAddressTable *mem.GenericLowModuleFinder,
 	pmcAddressTable *mem.BankedLowModuleFinder,
 	maxNumHops int,
 ) {
@@ -211,18 +218,98 @@ func (b *R9NanoPlatformBuilder) createGPUs(
 			if x == b.tileWidth/2 && y == b.tileHeight/2 {
 				continue
 			}
-			b.createGPU(x, y, gpuBuilder, gpuDriver, rdmaAddressTable, pmcAddressTable, connector)
+			b.createGPU(x, y,
+				gpuBuilder, gpuDriver,
+				rdmaAddressTable, pmcAddressTable,
+				connector,
+			)
 		}
 	}
+
+	// Create a map for all the GPUs
+	entries := make([]addressMappingEntry, 0, len(b.gpus)+1)
+	for y := 0; y < b.tileHeight; y++ {
+		for x := 0; x < b.tileWidth; x++ {
+			entry := &addressMappingEntry{
+				x: x, y: y,
+			}
+
+			gpuIndex := b.convertCoordinateToGPUID(x, y)
+			entry.gpuID = gpuIndex
+			entry.lowAddr = uint64(gpuIndex) * 4 * mem.GB
+			entry.highAddr = entry.lowAddr + 4*mem.GB
+			entry.port = b.gpus[gpuIndex-1].RDMAEngine.GetPortByName("Outside")
+
+			entries = append(entries, *entry)
+		}
+	}
+
 	for y := 0; y < b.tileHeight; y++ {
 		for x := 0; x < b.tileWidth; x++ {
 			if x == b.tileWidth/2 && y == b.tileHeight/2 {
 				continue
 			}
-			gpuID := b.convertCoodrinateToGPUID(x, y)
-			b.gpus[gpuID-1].RDMAEngine.RemoteRDMAAddressTable = b.setRDMAAddrTable(x, y, maxNumHops)
+			gpuID := b.convertCoordinateToGPUID(x, y)
+			b.gpus[gpuID-1].RDMAEngine.RemoteRDMAAddressTable =
+				b.setRDMAAddrTable(x, y, maxNumHops, entries)
 		}
 	}
+}
+
+func (b *R9NanoPlatformBuilder) setRDMAAddrTable(
+	x, y, maxNumHops int,
+	entries []addressMappingEntry,
+) *mem.GenericLowModuleFinder {
+	rdmaAddressTable := new(mem.GenericLowModuleFinder)
+
+	for _, entry := range entries {
+		if entry.x == x && entry.y == y {
+			continue
+		}
+
+		if abs(x-entry.x)+abs(y-entry.y) > maxNumHops {
+			// Find all coordinates that are within maxNumHops hops
+			// from the current GPU
+			candidates := b.getCandidates(x, y, maxNumHops, entries)
+
+			// Find the closest candidates
+			lowestDist := math.MaxInt
+			for _, candidate := range candidates {
+				dist := abs(entry.x-candidate.x) + abs(entry.y-candidate.y)
+				if dist < lowestDist {
+					lowestDist = dist
+				}
+			}
+
+			// Filter out all candidates that are not the closest
+			filteredCandidate := make([]addressMappingEntry, 0, len(candidates))
+			for _, candidate := range candidates {
+				dist := abs(entry.x-candidate.x) + abs(entry.y-candidate.y)
+				if dist == lowestDist {
+					filteredCandidate = append(filteredCandidate, candidate)
+				}
+			}
+
+			// Randomly pick one of the closest candidates
+			chosen := filteredCandidate[rand.Intn(len(filteredCandidate))]
+
+			// Add the chosen entry to the RDMA address table
+			rdmaAddressTable.AddAddressRange(
+				entry.lowAddr, entry.highAddr, chosen.port)
+		}
+
+		rdmaAddressTable.AddAddressRange(
+			entry.lowAddr, entry.highAddr, entry.port)
+	}
+
+	return rdmaAddressTable
+}
+
+func abs(x int) int {
+	if x < 0 {
+		return -x
+	}
+	return x
 }
 
 func (b R9NanoPlatformBuilder) createPMCPageTable() *mem.BankedLowModuleFinder {
@@ -232,13 +319,11 @@ func (b R9NanoPlatformBuilder) createPMCPageTable() *mem.BankedLowModuleFinder {
 	return pmcAddressTable
 }
 
-func (b R9NanoPlatformBuilder) createRDMAAddrTable() *mem.AddressBoundary {
+func (b R9NanoPlatformBuilder) createRDMAAddrTable() *mem.GenericLowModuleFinder {
+	rdmaAddressTable := new(mem.GenericLowModuleFinder)
 
-	rdmaAddressTable := new(mem.AddressBoundary)
-	// rdmaAddressTable.BankSize = 4 * mem.GB
-	rdmaAddressTable.LowAddr = append(rdmaAddressTable.LowAddr, uint64(0))
-	rdmaAddressTable.HighAddr = append(rdmaAddressTable.HighAddr, uint64(4*mem.GB))
-	rdmaAddressTable.LowModules = append(rdmaAddressTable.LowModules, nil)
+	rdmaAddressTable.AddAddressRange(0, 4*mem.GB, nil)
+
 	return rdmaAddressTable
 }
 
@@ -372,7 +457,7 @@ func (b *R9NanoPlatformBuilder) createGPU(
 	x, y int,
 	gpuBuilder R9NanoGPUBuilder,
 	gpuDriver *driver.Driver,
-	rdmaAddressTable *mem.AddressBoundary,
+	rdmaAddressTable *mem.GenericLowModuleFinder,
 	pmcAddressTable *mem.BankedLowModuleFinder,
 	connector *mesh.Connector,
 ) *GPU {
@@ -436,7 +521,7 @@ func (b *R9NanoPlatformBuilder) convertGPUIDToCoodrinate(gpuID int) (int, int) {
 	return x, y
 }
 
-func (b *R9NanoPlatformBuilder) convertCoodrinateToGPUID(x int, y int) int {
+func (b *R9NanoPlatformBuilder) convertCoordinateToGPUID(x int, y int) int {
 	var gpuID int
 	if y < b.tileHeight/2 {
 		gpuID = y*(b.tileWidth) + x + 1
@@ -453,710 +538,676 @@ func (b *R9NanoPlatformBuilder) convertCoodrinateToGPUID(x int, y int) int {
 	return gpuID
 }
 
-type gpuCoodrinate struct {
-	gpuID int
-	x     int
-	y     int
-}
+// type gpuCoodrinate struct {
+// 	gpuID int
+// 	x     int
+// 	y     int
+// }
 
-func NewGPUCoodrinate(gpuID int, x int, y int) *gpuCoodrinate {
-	return &gpuCoodrinate{
-		gpuID: gpuID,
-		x:     x,
-		y:     y,
-	}
-}
-func (b *R9NanoPlatformBuilder) gpuMatrix() []gpuCoodrinate {
-	var gpuID int = 1
-	gpuCoodrinateList := []gpuCoodrinate{}
-	newGPUCoodrinate := NewGPUCoodrinate
-	for y := 0; y < b.tileHeight; y++ {
-		for x := 0; x < b.tileWidth; x++ {
-			if x == b.tileWidth/2 && y == b.tileHeight/2 {
-				continue
-			}
-			gpuCoodrinateList = append(gpuCoodrinateList, *newGPUCoodrinate(gpuID, x, y))
-			gpuID = gpuID + 1
-		}
-	}
-	return gpuCoodrinateList
-}
+// func NewGPUCoodrinate(gpuID int, x int, y int) *gpuCoodrinate {
+// 	return &gpuCoodrinate{
+// 		gpuID: gpuID,
+// 		x:     x,
+// 		y:     y,
+// 	}
+// }
+// func (b *R9NanoPlatformBuilder) gpuMatrix() []gpuCoodrinate {
+// 	var gpuID int = 1
+// 	gpuCoodrinateList := []gpuCoodrinate{}
+// 	newGPUCoodrinate := NewGPUCoodrinate
+// 	for y := 0; y < b.tileHeight; y++ {
+// 		for x := 0; x < b.tileWidth; x++ {
+// 			if x == b.tileWidth/2 && y == b.tileHeight/2 {
+// 				continue
+// 			}
+// 			gpuCoodrinateList = append(gpuCoodrinateList, *newGPUCoodrinate(gpuID, x, y))
+// 			gpuID = gpuID + 1
+// 		}
+// 	}
+// 	return gpuCoodrinateList
+// }
 
-func (b *R9NanoPlatformBuilder) gpuMatrixPartation(gpuLocationX int, gpuLocationY int) ([]gpuCoodrinate, []gpuCoodrinate, []gpuCoodrinate, []gpuCoodrinate) {
-	var gpuID int = 1
-	gpuCoodrinateListUp := []gpuCoodrinate{}
-	gpuCoodrinateListDown := []gpuCoodrinate{}
-	gpuCoodrinateListLeft := []gpuCoodrinate{}
-	gpuCoodrinateListRight := []gpuCoodrinate{}
-	newGPUCoodrinate := NewGPUCoodrinate
-	for y := 0; y < b.tileHeight; y++ {
-		for x := 0; x < b.tileWidth; x++ {
-			if x == b.tileWidth/2 && y == b.tileHeight/2 {
-				continue
-			}
-			if y < gpuLocationY {
-				gpuCoodrinateListUp = append(gpuCoodrinateListUp, *newGPUCoodrinate(gpuID, x, y))
-			}
-			if y > gpuLocationY {
-				gpuCoodrinateListDown = append(gpuCoodrinateListDown, *newGPUCoodrinate(gpuID, x, y))
-			}
-			if x < gpuLocationX {
-				gpuCoodrinateListLeft = append(gpuCoodrinateListLeft, *newGPUCoodrinate(gpuID, x, y))
-			}
-			if x > gpuLocationX {
-				gpuCoodrinateListRight = append(gpuCoodrinateListRight, *newGPUCoodrinate(gpuID, x, y))
-			}
-			gpuID = gpuID + 1
-		}
-	}
-	return gpuCoodrinateListUp, gpuCoodrinateListDown, gpuCoodrinateListLeft, gpuCoodrinateListRight
-}
+// func (b *R9NanoPlatformBuilder) gpuMatrixPartition(gpuLocationX int, gpuLocationY int) ([]gpuCoodrinate, []gpuCoodrinate, []gpuCoodrinate, []gpuCoodrinate) {
+// 	var gpuID int = 1
+// 	gpuCoodrinateListUp := []gpuCoodrinate{}
+// 	gpuCoodrinateListDown := []gpuCoodrinate{}
+// 	gpuCoodrinateListLeft := []gpuCoodrinate{}
+// 	gpuCoodrinateListRight := []gpuCoodrinate{}
+// 	newGPUCoodrinate := NewGPUCoodrinate
+// 	for y := 0; y < b.tileHeight; y++ {
+// 		for x := 0; x < b.tileWidth; x++ {
+// 			if x == b.tileWidth/2 && y == b.tileHeight/2 {
+// 				continue
+// 			}
+// 			if y < gpuLocationY {
+// 				gpuCoodrinateListUp = append(gpuCoodrinateListUp, *newGPUCoodrinate(gpuID, x, y))
+// 			}
+// 			if y > gpuLocationY {
+// 				gpuCoodrinateListDown = append(gpuCoodrinateListDown, *newGPUCoodrinate(gpuID, x, y))
+// 			}
+// 			if x < gpuLocationX {
+// 				gpuCoodrinateListLeft = append(gpuCoodrinateListLeft, *newGPUCoodrinate(gpuID, x, y))
+// 			}
+// 			if x > gpuLocationX {
+// 				gpuCoodrinateListRight = append(gpuCoodrinateListRight, *newGPUCoodrinate(gpuID, x, y))
+// 			}
+// 			gpuID = gpuID + 1
+// 		}
+// 	}
+// 	return gpuCoodrinateListUp, gpuCoodrinateListDown, gpuCoodrinateListLeft, gpuCoodrinateListRight
+// }
 
-func (b *R9NanoPlatformBuilder) getCandidates(gpuLocationX int, gpuLocationY int, maxNumHops int, gpuCoorinateList []gpuCoodrinate) []int {
-	candidates := make([]int, 0)
-	for _, coodrinate := range gpuCoorinateList {
-		gpuID := coodrinate.gpuID
-		x := coodrinate.x
-		y := coodrinate.y
-		hops := int(math.Abs(float64(x-gpuLocationX)) + math.Abs(float64(y-gpuLocationY)))
+func (b *R9NanoPlatformBuilder) getCandidates(
+	gpuX, gpuY int,
+	maxNumHops int,
+	gpuCoordinateList []addressMappingEntry,
+) []addressMappingEntry {
+	candidates := make([]addressMappingEntry, 0)
+
+	for _, coordinate := range gpuCoordinateList {
+		x := coordinate.x
+		y := coordinate.y
+		hops := abs(x-gpuX) + abs(y-gpuY)
 		if hops == maxNumHops {
-			candidates = append(candidates, gpuID)
+			candidates = append(candidates, coordinate)
 		}
 	}
+
 	return candidates
 }
-func (b *R9NanoPlatformBuilder) sellectPortGPU(gpuLocationX int, gpuLocationY int, maxNumHops int) (int, int, int, int) {
-	var upPort, downPort, leftPort, rightPort = 0, 0, 0, 0
 
-	gpuCoodrinateListUp, gpuCoodrinateListDown, gpuCoodrinateListLeft, gpuCoodrinateListRight := b.gpuMatrixPartation(gpuLocationX, gpuLocationY)
-	if gpuLocationX == 0 && gpuLocationY == 0 {
-		downPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListDown)
-		rightPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListRight)
-		for _, downPorts := range downPortCandidate {
-			if downPorts == 0 {
-				continue
-			} else {
-				downPort = downPorts
-			}
-		}
-		for _, rightPorts := range rightPortCandidate {
-			if rightPorts == downPort {
-				continue
-			} else if rightPorts == 0 {
-				continue
-			} else {
-				rightPort = rightPorts
-				break
-			}
-		}
-	}
+// func (b *R9NanoPlatformBuilder) selectPortGPU(gpuLocationX int, gpuLocationY int, maxNumHops int) (int, int, int, int) {
+// 	var upPort, downPort, leftPort, rightPort = 0, 0, 0, 0
 
-	if gpuLocationX == (b.tileWidth-1) && gpuLocationY == 0 {
-		downPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListDown)
-		leftPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListLeft)
-		for _, downPorts := range downPortCandidate {
-			if downPorts == 0 {
-				continue
-			} else {
-				downPort = downPorts
-			}
-		}
-		for _, leftPorts := range leftPortCandidate {
-			if leftPorts == downPort {
-				continue
-			} else if leftPorts == 0 {
-				continue
-			} else {
-				leftPort = leftPorts
-				break
-			}
-		}
-	}
+// 	gpuCoodrinateListUp, gpuCoodrinateListDown, gpuCoodrinateListLeft, gpuCoodrinateListRight := b.gpuMatrixPartation(gpuLocationX, gpuLocationY)
+// 	if gpuLocationX == 0 && gpuLocationY == 0 {
+// 		downPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListDown)
+// 		rightPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListRight)
+// 		for _, downPorts := range downPortCandidate {
+// 			if downPorts == 0 {
+// 				continue
+// 			} else {
+// 				downPort = downPorts
+// 			}
+// 		}
+// 		for _, rightPorts := range rightPortCandidate {
+// 			if rightPorts == downPort {
+// 				continue
+// 			} else if rightPorts == 0 {
+// 				continue
+// 			} else {
+// 				rightPort = rightPorts
+// 				break
+// 			}
+// 		}
+// 	}
 
-	if gpuLocationX == 0 && gpuLocationY == (b.tileHeight-1) {
-		upPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListUp)
-		rightPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListRight)
-		upPort = upPortCandidate[0]
-		for _, upPorts := range upPortCandidate {
-			if upPorts == 0 {
-				continue
-			} else {
-				upPort = upPorts
-			}
-		}
-		for _, rightPorts := range rightPortCandidate {
-			if rightPorts == upPort {
-				continue
-			} else if rightPorts == 0 {
-				continue
-			} else {
-				rightPort = rightPorts
-				break
-			}
-		}
-	}
+// 	if gpuLocationX == (b.tileWidth-1) && gpuLocationY == 0 {
+// 		downPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListDown)
+// 		leftPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListLeft)
+// 		for _, downPorts := range downPortCandidate {
+// 			if downPorts == 0 {
+// 				continue
+// 			} else {
+// 				downPort = downPorts
+// 			}
+// 		}
+// 		for _, leftPorts := range leftPortCandidate {
+// 			if leftPorts == downPort {
+// 				continue
+// 			} else if leftPorts == 0 {
+// 				continue
+// 			} else {
+// 				leftPort = leftPorts
+// 				break
+// 			}
+// 		}
+// 	}
 
-	if gpuLocationX == (b.tileWidth-1) && gpuLocationY == (b.tileHeight-1) {
-		upPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListUp)
-		leftPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListLeft)
-		upPort = upPortCandidate[0]
-		for _, upPorts := range upPortCandidate {
-			if upPorts == 0 {
-				continue
-			} else {
-				upPort = upPorts
-			}
-		}
-		for _, leftPorts := range leftPortCandidate {
-			if leftPorts == upPort {
-				continue
-			} else if leftPorts == 0 {
-				continue
-			} else {
-				leftPort = leftPorts
-				break
-			}
-		}
-	}
+// 	if gpuLocationX == 0 && gpuLocationY == (b.tileHeight-1) {
+// 		upPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListUp)
+// 		rightPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListRight)
+// 		upPort = upPortCandidate[0]
+// 		for _, upPorts := range upPortCandidate {
+// 			if upPorts == 0 {
+// 				continue
+// 			} else {
+// 				upPort = upPorts
+// 			}
+// 		}
+// 		for _, rightPorts := range rightPortCandidate {
+// 			if rightPorts == upPort {
+// 				continue
+// 			} else if rightPorts == 0 {
+// 				continue
+// 			} else {
+// 				rightPort = rightPorts
+// 				break
+// 			}
+// 		}
+// 	}
 
-	if gpuLocationX != 0 && gpuLocationX != (b.tileWidth-1) && gpuLocationY == 0 {
-		leftPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListLeft)
-		rightPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListRight)
-		downPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListDown)
-		for _, leftPorts := range leftPortCandidate {
-			if leftPorts == 0 {
-				continue
-			} else {
-				leftPort = leftPorts
-			}
-		}
-		for _, rightPorts := range rightPortCandidate {
-			if rightPorts == leftPort {
-				continue
-			} else if rightPorts == 0 {
-				continue
-			} else {
-				rightPort = rightPorts
-				break
-			}
-		}
+// 	if gpuLocationX == (b.tileWidth-1) && gpuLocationY == (b.tileHeight-1) {
+// 		upPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListUp)
+// 		leftPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListLeft)
+// 		upPort = upPortCandidate[0]
+// 		for _, upPorts := range upPortCandidate {
+// 			if upPorts == 0 {
+// 				continue
+// 			} else {
+// 				upPort = upPorts
+// 			}
+// 		}
+// 		for _, leftPorts := range leftPortCandidate {
+// 			if leftPorts == upPort {
+// 				continue
+// 			} else if leftPorts == 0 {
+// 				continue
+// 			} else {
+// 				leftPort = leftPorts
+// 				break
+// 			}
+// 		}
+// 	}
 
-		for _, downPorts := range downPortCandidate {
-			if downPorts == leftPort || downPorts == rightPort {
-				continue
-			} else if downPorts == 0 {
-				continue
-			} else {
-				downPort = downPorts
-				break
-			}
-		}
-		if leftPort == 0 {
-			leftPort = downPort
-		}
-		if rightPort == 0 {
-			rightPort = downPort
-		}
-		if downPort == 0 {
-			downPort = leftPort
-		}
-	}
+// 	if gpuLocationX != 0 && gpuLocationX != (b.tileWidth-1) && gpuLocationY == 0 {
+// 		leftPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListLeft)
+// 		rightPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListRight)
+// 		downPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListDown)
+// 		for _, leftPorts := range leftPortCandidate {
+// 			if leftPorts == 0 {
+// 				continue
+// 			} else {
+// 				leftPort = leftPorts
+// 			}
+// 		}
+// 		for _, rightPorts := range rightPortCandidate {
+// 			if rightPorts == leftPort {
+// 				continue
+// 			} else if rightPorts == 0 {
+// 				continue
+// 			} else {
+// 				rightPort = rightPorts
+// 				break
+// 			}
+// 		}
 
-	if gpuLocationX != 0 && gpuLocationX != (b.tileWidth-1) && gpuLocationY == (b.tileHeight-1) {
-		leftPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListLeft)
-		rightPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListRight)
-		upPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListUp)
-		for _, leftPorts := range leftPortCandidate {
-			if leftPorts == 0 {
-				continue
-			} else {
-				leftPort = leftPorts
-			}
-		}
-		for _, rightPorts := range rightPortCandidate {
-			if rightPorts == leftPort {
-				continue
-			} else if rightPorts == 0 {
-				continue
-			} else {
-				rightPort = rightPorts
-				break
-			}
-		}
+// 		for _, downPorts := range downPortCandidate {
+// 			if downPorts == leftPort || downPorts == rightPort {
+// 				continue
+// 			} else if downPorts == 0 {
+// 				continue
+// 			} else {
+// 				downPort = downPorts
+// 				break
+// 			}
+// 		}
+// 		if leftPort == 0 {
+// 			leftPort = downPort
+// 		}
+// 		if rightPort == 0 {
+// 			rightPort = downPort
+// 		}
+// 		if downPort == 0 {
+// 			downPort = leftPort
+// 		}
+// 	}
 
-		for _, upPorts := range upPortCandidate {
-			if upPorts == leftPort || upPorts == rightPort {
-				continue
-			} else if upPorts == 0 {
-				continue
-			} else {
-				upPort = upPorts
-				break
-			}
-		}
-		if leftPort == 0 {
-			leftPort = upPort
-		}
-		if rightPort == 0 {
-			rightPort = upPort
-		}
-		if upPort == 0 {
-			upPort = leftPort
-		}
-	}
+// 	if gpuLocationX != 0 && gpuLocationX != (b.tileWidth-1) && gpuLocationY == (b.tileHeight-1) {
+// 		leftPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListLeft)
+// 		rightPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListRight)
+// 		upPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListUp)
+// 		for _, leftPorts := range leftPortCandidate {
+// 			if leftPorts == 0 {
+// 				continue
+// 			} else {
+// 				leftPort = leftPorts
+// 			}
+// 		}
+// 		for _, rightPorts := range rightPortCandidate {
+// 			if rightPorts == leftPort {
+// 				continue
+// 			} else if rightPorts == 0 {
+// 				continue
+// 			} else {
+// 				rightPort = rightPorts
+// 				break
+// 			}
+// 		}
 
-	if gpuLocationY != 0 && gpuLocationY != (b.tileHeight-1) && gpuLocationX == 0 {
-		upPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListUp)
-		downPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListDown)
-		rightPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListRight)
-		upPort = upPortCandidate[0]
-		for _, upPorts := range upPortCandidate {
-			if upPorts == 0 {
-				continue
-			} else {
-				upPort = upPorts
-			}
-		}
-		for _, downPorts := range downPortCandidate {
-			if downPorts == leftPort {
-				continue
-			} else if downPorts == 0 {
-				continue
-			} else {
-				downPort = downPorts
-				break
-			}
-		}
+// 		for _, upPorts := range upPortCandidate {
+// 			if upPorts == leftPort || upPorts == rightPort {
+// 				continue
+// 			} else if upPorts == 0 {
+// 				continue
+// 			} else {
+// 				upPort = upPorts
+// 				break
+// 			}
+// 		}
+// 		if leftPort == 0 {
+// 			leftPort = upPort
+// 		}
+// 		if rightPort == 0 {
+// 			rightPort = upPort
+// 		}
+// 		if upPort == 0 {
+// 			upPort = leftPort
+// 		}
+// 	}
 
-		for _, rightPorts := range rightPortCandidate {
-			if rightPorts == upPort || rightPorts == downPort {
-				continue
-			} else if rightPorts == 0 {
-				continue
-			} else {
-				rightPort = rightPorts
-				break
-			}
-		}
-		if upPort == 0 {
-			upPort = rightPort
-		}
-		if rightPort == 0 {
-			leftPort = upPort
-		}
-		if downPort == 0 {
-			downPort = rightPort
-		}
-	}
+// 	if gpuLocationY != 0 && gpuLocationY != (b.tileHeight-1) && gpuLocationX == 0 {
+// 		upPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListUp)
+// 		downPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListDown)
+// 		rightPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListRight)
+// 		upPort = upPortCandidate[0]
+// 		for _, upPorts := range upPortCandidate {
+// 			if upPorts == 0 {
+// 				continue
+// 			} else {
+// 				upPort = upPorts
+// 			}
+// 		}
+// 		for _, downPorts := range downPortCandidate {
+// 			if downPorts == leftPort {
+// 				continue
+// 			} else if downPorts == 0 {
+// 				continue
+// 			} else {
+// 				downPort = downPorts
+// 				break
+// 			}
+// 		}
 
-	if gpuLocationY != 0 && gpuLocationY != (b.tileHeight-1) && gpuLocationX == (b.tileWidth-1) {
-		upPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListUp)
-		downPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListDown)
-		leftPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListLeft)
-		upPort = upPortCandidate[0]
-		for _, upPorts := range upPortCandidate {
-			if upPorts == 0 {
-				continue
-			} else {
-				upPort = upPorts
-			}
-		}
-		for _, downPorts := range downPortCandidate {
-			if downPorts == leftPort {
-				continue
-			} else if downPorts == 0 {
-				continue
-			} else {
-				downPort = downPorts
-				break
-			}
-		}
+// 		for _, rightPorts := range rightPortCandidate {
+// 			if rightPorts == upPort || rightPorts == downPort {
+// 				continue
+// 			} else if rightPorts == 0 {
+// 				continue
+// 			} else {
+// 				rightPort = rightPorts
+// 				break
+// 			}
+// 		}
+// 		if upPort == 0 {
+// 			upPort = rightPort
+// 		}
+// 		if rightPort == 0 {
+// 			leftPort = upPort
+// 		}
+// 		if downPort == 0 {
+// 			downPort = rightPort
+// 		}
+// 	}
 
-		for _, leftPorts := range leftPortCandidate {
-			if leftPorts == upPort || leftPorts == downPort {
-				continue
-			} else if leftPorts == 0 {
-				continue
-			} else {
-				leftPort = leftPorts
-				break
-			}
-		}
-		if upPort == 0 {
-			upPort = leftPort
-		}
-		if leftPort == 0 {
-			leftPort = upPort
-		}
-		if downPort == 0 {
-			downPort = leftPort
-		}
-	}
+// 	if gpuLocationY != 0 && gpuLocationY != (b.tileHeight-1) && gpuLocationX == (b.tileWidth-1) {
+// 		upPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListUp)
+// 		downPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListDown)
+// 		leftPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListLeft)
+// 		upPort = upPortCandidate[0]
+// 		for _, upPorts := range upPortCandidate {
+// 			if upPorts == 0 {
+// 				continue
+// 			} else {
+// 				upPort = upPorts
+// 			}
+// 		}
+// 		for _, downPorts := range downPortCandidate {
+// 			if downPorts == leftPort {
+// 				continue
+// 			} else if downPorts == 0 {
+// 				continue
+// 			} else {
+// 				downPort = downPorts
+// 				break
+// 			}
+// 		}
 
-	if gpuLocationY != 0 && gpuLocationY != (b.tileHeight-1) && gpuLocationX != (b.tileWidth-1) && gpuLocationX != 0 {
-		upPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListUp)
-		downPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListDown)
-		leftPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListLeft)
-		rightPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListRight)
-		// upPort = upPortCandidate[0]
-		for _, upPorts := range upPortCandidate {
-			if upPorts == 0 {
-				continue
-			} else {
-				upPort = upPorts
-			}
-		}
-		for _, downPorts := range downPortCandidate {
-			if downPorts == leftPort {
-				continue
-			} else if downPorts == 0 {
-				continue
-			} else {
-				downPort = downPorts
-				break
-			}
-		}
+// 		for _, leftPorts := range leftPortCandidate {
+// 			if leftPorts == upPort || leftPorts == downPort {
+// 				continue
+// 			} else if leftPorts == 0 {
+// 				continue
+// 			} else {
+// 				leftPort = leftPorts
+// 				break
+// 			}
+// 		}
+// 		if upPort == 0 {
+// 			upPort = leftPort
+// 		}
+// 		if leftPort == 0 {
+// 			leftPort = upPort
+// 		}
+// 		if downPort == 0 {
+// 			downPort = leftPort
+// 		}
+// 	}
 
-		for _, leftPorts := range leftPortCandidate {
-			if leftPorts == upPort || leftPorts == downPort {
-				continue
-			} else if leftPorts == 0 {
-				continue
-			} else {
-				leftPort = leftPorts
-				break
-			}
-		}
+// 	if gpuLocationY != 0 && gpuLocationY != (b.tileHeight-1) && gpuLocationX != (b.tileWidth-1) && gpuLocationX != 0 {
+// 		upPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListUp)
+// 		downPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListDown)
+// 		leftPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListLeft)
+// 		rightPortCandidate := b.getCandidates(gpuLocationX, gpuLocationY, maxNumHops, gpuCoodrinateListRight)
+// 		// upPort = upPortCandidate[0]
+// 		for _, upPorts := range upPortCandidate {
+// 			if upPorts == 0 {
+// 				continue
+// 			} else {
+// 				upPort = upPorts
+// 			}
+// 		}
+// 		for _, downPorts := range downPortCandidate {
+// 			if downPorts == leftPort {
+// 				continue
+// 			} else if downPorts == 0 {
+// 				continue
+// 			} else {
+// 				downPort = downPorts
+// 				break
+// 			}
+// 		}
 
-		for _, rightPorts := range rightPortCandidate {
-			if rightPorts == upPort || rightPorts == downPort || rightPorts == leftPort {
-				continue
-			} else if rightPorts == 0 {
-				continue
-			} else {
-				rightPort = rightPorts
-				break
-			}
-		}
+// 		for _, leftPorts := range leftPortCandidate {
+// 			if leftPorts == upPort || leftPorts == downPort {
+// 				continue
+// 			} else if leftPorts == 0 {
+// 				continue
+// 			} else {
+// 				leftPort = leftPorts
+// 				break
+// 			}
+// 		}
 
-		if upPort == 0 {
-			upPort = rightPort
-		}
-		if rightPort == 0 {
-			rightPort = upPort
-		}
-		if downPort == 0 {
-			downPort = leftPort
-		}
-		if leftPort == 0 {
-			leftPort = downPort
-		}
-	}
+// 		for _, rightPorts := range rightPortCandidate {
+// 			if rightPorts == upPort || rightPorts == downPort || rightPorts == leftPort {
+// 				continue
+// 			} else if rightPorts == 0 {
+// 				continue
+// 			} else {
+// 				rightPort = rightPorts
+// 				break
+// 			}
+// 		}
 
-	return upPort, downPort, leftPort, rightPort
-}
+// 		if upPort == 0 {
+// 			upPort = rightPort
+// 		}
+// 		if rightPort == 0 {
+// 			rightPort = upPort
+// 		}
+// 		if downPort == 0 {
+// 			downPort = leftPort
+// 		}
+// 		if leftPort == 0 {
+// 			leftPort = downPort
+// 		}
+// 	}
 
-func (b *R9NanoPlatformBuilder) isContain(gpuID int, gpuCoodrinateList []gpuCoodrinate) bool {
-	for _, gpu := range gpuCoodrinateList {
-		if gpu.gpuID == gpuID {
-			return true
-		}
-	}
-	return false
-}
+// 	return upPort, downPort, leftPort, rightPort
+// }
 
-func (b *R9NanoPlatformBuilder) setConnerRDMATable(
-	gpuCoodrinateSide1 []gpuCoodrinate,
-	gpuCoodrinateSide2 []gpuCoodrinate,
-	gpuPort1 int, gpuPort2 int, maxNumHops int, gpuLocationX int, gpuLocationY int) mem.AddressBoundary {
-	rdmaAddrTable := mem.AddressBoundary{}
-	// newrdmaAddrTable := mem.NewAddressBoundary
-	gpuMatrix := b.gpuMatrix()
-	for i, gpu := range gpuMatrix {
-		assignedgpuID := gpu.gpuID
-		x, y := b.convertGPUIDToCoodrinate(assignedgpuID)
-		hops := int(math.Abs(float64(x-gpuLocationX) + math.Abs(float64(y-gpuLocationY))))
-		if hops <= maxNumHops {
-			rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
-			rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
-			rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[i].RDMAEngine.ToOutside)
-		} else {
-			if b.isContain(assignedgpuID, gpuCoodrinateSide1) && !b.isContain(assignedgpuID, gpuCoodrinateSide2) {
-				rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
-				rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
-				rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort1-1].RDMAEngine.ToOutside)
-				continue
-			}
+// func (b *R9NanoPlatformBuilder) isContain(gpuID int, gpuCoodrinateList []gpuCoodrinate) bool {
+// 	for _, gpu := range gpuCoodrinateList {
+// 		if gpu.gpuID == gpuID {
+// 			return true
+// 		}
+// 	}
+// 	return false
+// }
 
-			if !b.isContain(assignedgpuID, gpuCoodrinateSide1) && b.isContain(assignedgpuID, gpuCoodrinateSide2) {
-				rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
-				rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
-				rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort2-1].RDMAEngine.ToOutside)
-				continue
-			}
+// func (b *R9NanoPlatformBuilder) setConnerRDMATable(
+// 	gpuCoodrinateSide1 []gpuCoodrinate,
+// 	gpuCoodrinateSide2 []gpuCoodrinate,
+// 	gpuPort1 int, gpuPort2 int, maxNumHops int, gpuLocationX int, gpuLocationY int) mem.GenericLowModuleFinder {
+// 	rdmaAddrTable := mem.GenericLowModuleFinder{}
+// 	// newrdmaAddrTable := mem.NewAddressBoundary
+// 	gpuMatrix := b.gpuMatrix()
+// 	for i, gpu := range gpuMatrix {
+// 		assignedgpuID := gpu.gpuID
+// 		x, y := b.convertGPUIDToCoodrinate(assignedgpuID)
+// 		hops := int(math.Abs(float64(x-gpuLocationX) + math.Abs(float64(y-gpuLocationY))))
+// 		if hops <= maxNumHops {
+// 			rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+// 			rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+// 			rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[i].RDMAEngine.ToOutside)
+// 		} else {
+// 			if b.isContain(assignedgpuID, gpuCoodrinateSide1) && !b.isContain(assignedgpuID, gpuCoodrinateSide2) {
+// 				rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+// 				rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+// 				rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort1-1].RDMAEngine.ToOutside)
+// 				continue
+// 			}
 
-			if b.isContain(assignedgpuID, gpuCoodrinateSide1) && b.isContain(assignedgpuID, gpuCoodrinateSide2) {
-				rand := rand.Intn(2)
-				if rand == 0 {
-					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
-					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
-					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort1-1].RDMAEngine.ToOutside)
-					continue
-				}
-				if rand == 1 {
-					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
-					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
-					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort2-1].RDMAEngine.ToOutside)
-					continue
-				}
-			}
-		}
-	}
-	return rdmaAddrTable
-}
+// 			if !b.isContain(assignedgpuID, gpuCoodrinateSide1) && b.isContain(assignedgpuID, gpuCoodrinateSide2) {
+// 				rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+// 				rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+// 				rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort2-1].RDMAEngine.ToOutside)
+// 				continue
+// 			}
 
-func (b *R9NanoPlatformBuilder) setSideRDMAAddrTable(
-	gpuCoodrinateSide1 []gpuCoodrinate,
-	gpuCoodrinateSide2 []gpuCoodrinate,
-	gpuCoodrinateSide3 []gpuCoodrinate,
-	gpuPort1 int,
-	gpuPort2 int,
-	gpuPort3 int,
-	maxNumHops int, gpuLocationX int, gpuLocationY int,
-) mem.AddressBoundary {
-	rdmaAddrTable := mem.AddressBoundary{}
-	gpuMatrix := b.gpuMatrix()
-	for i, gpu := range gpuMatrix {
-		assignedgpuID := gpu.gpuID
-		x, y := b.convertGPUIDToCoodrinate(assignedgpuID)
-		hops := int(math.Abs(float64(x-gpuLocationX) + math.Abs(float64(y-gpuLocationY))))
-		if hops <= maxNumHops {
-			rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
-			rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
-			rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[i].RDMAEngine.ToOutside)
-		} else {
-			if b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
-				!b.isContain(assignedgpuID, gpuCoodrinateSide2) &&
-				!b.isContain(assignedgpuID, gpuCoodrinateSide3) {
-				rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
-				rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
-				rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort1-1].RDMAEngine.ToOutside)
-			}
+// 			if b.isContain(assignedgpuID, gpuCoodrinateSide1) && b.isContain(assignedgpuID, gpuCoodrinateSide2) {
+// 				rand := rand.Intn(2)
+// 				if rand == 0 {
+// 					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+// 					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+// 					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort1-1].RDMAEngine.ToOutside)
+// 					continue
+// 				}
+// 				if rand == 1 {
+// 					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+// 					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+// 					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort2-1].RDMAEngine.ToOutside)
+// 					continue
+// 				}
+// 			}
+// 		}
+// 	}
+// 	return rdmaAddrTable
+// }
 
-			if !b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
-				b.isContain(assignedgpuID, gpuCoodrinateSide2) &&
-				!b.isContain(assignedgpuID, gpuCoodrinateSide3) {
-				rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
-				rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
-				rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort2-1].RDMAEngine.ToOutside)
-			}
+// func (b *R9NanoPlatformBuilder) setSideRDMAAddrTable(
+// 	gpuCoodrinateSide1 []gpuCoodrinate,
+// 	gpuCoodrinateSide2 []gpuCoodrinate,
+// 	gpuCoodrinateSide3 []gpuCoodrinate,
+// 	gpuPort1 int,
+// 	gpuPort2 int,
+// 	gpuPort3 int,
+// 	maxNumHops int, gpuLocationX int, gpuLocationY int,
+// ) mem.GenericLowModuleFinder {
+// 	rdmaAddrTable := mem.AddressBoundary{}
+// 	gpuMatrix := b.gpuMatrix()
+// 	for i, gpu := range gpuMatrix {
+// 		assignedgpuID := gpu.gpuID
+// 		x, y := b.convertGPUIDToCoodrinate(assignedgpuID)
+// 		hops := int(math.Abs(float64(x-gpuLocationX) + math.Abs(float64(y-gpuLocationY))))
+// 		if hops <= maxNumHops {
+// 			rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+// 			rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+// 			rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[i].RDMAEngine.ToOutside)
+// 		} else {
+// 			if b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
+// 				!b.isContain(assignedgpuID, gpuCoodrinateSide2) &&
+// 				!b.isContain(assignedgpuID, gpuCoodrinateSide3) {
+// 				rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+// 				rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+// 				rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort1-1].RDMAEngine.ToOutside)
+// 			}
 
-			if !b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
-				!b.isContain(assignedgpuID, gpuCoodrinateSide2) &&
-				b.isContain(assignedgpuID, gpuCoodrinateSide3) {
-				rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
-				rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
-				rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort3-1].RDMAEngine.ToOutside)
-			}
+// 			if !b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
+// 				b.isContain(assignedgpuID, gpuCoodrinateSide2) &&
+// 				!b.isContain(assignedgpuID, gpuCoodrinateSide3) {
+// 				rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+// 				rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+// 				rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort2-1].RDMAEngine.ToOutside)
+// 			}
 
-			if b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
-				b.isContain(assignedgpuID, gpuCoodrinateSide2) &&
-				!b.isContain(assignedgpuID, gpuCoodrinateSide3) {
-				rand := rand.Intn(2)
-				if rand == 0 {
-					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
-					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
-					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort1-1].RDMAEngine.ToOutside)
-				}
-				if rand == 1 {
-					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
-					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
-					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort2-1].RDMAEngine.ToOutside)
-				}
-			}
-			if !b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
-				b.isContain(assignedgpuID, gpuCoodrinateSide2) &&
-				b.isContain(assignedgpuID, gpuCoodrinateSide3) {
-				rand := rand.Intn(2)
-				if rand == 0 {
-					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
-					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
-					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort2-1].RDMAEngine.ToOutside)
-				}
-				if rand == 1 {
-					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
-					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
-					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort3-1].RDMAEngine.ToOutside)
-				}
-			}
-		}
-	}
-	return rdmaAddrTable
-}
+// 			if !b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
+// 				!b.isContain(assignedgpuID, gpuCoodrinateSide2) &&
+// 				b.isContain(assignedgpuID, gpuCoodrinateSide3) {
+// 				rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+// 				rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+// 				rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort3-1].RDMAEngine.ToOutside)
+// 			}
 
-func (b *R9NanoPlatformBuilder) setCenterRDMAAddrTable(
-	gpuCoodrinateSide1 []gpuCoodrinate,
-	gpuCoodrinateSide2 []gpuCoodrinate,
-	gpuCoodrinateSide3 []gpuCoodrinate,
-	gpuCoodrinateSide4 []gpuCoodrinate,
-	gpuPort1 int,
-	gpuPort2 int,
-	gpuPort3 int,
-	gpuPort4 int,
-	maxNumHops int, gpuLocationX int, gpuLocationY int,
-) mem.AddressBoundary {
-	rdmaAddrTable := mem.AddressBoundary{}
-	gpuMatrix := b.gpuMatrix()
-	for i, gpu := range gpuMatrix {
-		assignedgpuID := gpu.gpuID
-		x, y := b.convertGPUIDToCoodrinate(assignedgpuID)
-		hops := int(math.Abs(float64(x-gpuLocationX))) + int(math.Abs(float64(y-gpuLocationY)))
-		if hops <= maxNumHops {
-			rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
-			rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
-			rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[i].RDMAEngine.ToOutside)
-		} else {
-			if b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
-				!b.isContain(assignedgpuID, gpuCoodrinateSide2) &&
-				!b.isContain(assignedgpuID, gpuCoodrinateSide3) &&
-				!b.isContain(assignedgpuID, gpuCoodrinateSide4) {
-				rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
-				rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
-				rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort1-1].RDMAEngine.ToOutside)
-			}
+// 			if b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
+// 				b.isContain(assignedgpuID, gpuCoodrinateSide2) &&
+// 				!b.isContain(assignedgpuID, gpuCoodrinateSide3) {
+// 				rand := rand.Intn(2)
+// 				if rand == 0 {
+// 					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+// 					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+// 					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort1-1].RDMAEngine.ToOutside)
+// 				}
+// 				if rand == 1 {
+// 					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+// 					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+// 					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort2-1].RDMAEngine.ToOutside)
+// 				}
+// 			}
+// 			if !b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
+// 				b.isContain(assignedgpuID, gpuCoodrinateSide2) &&
+// 				b.isContain(assignedgpuID, gpuCoodrinateSide3) {
+// 				rand := rand.Intn(2)
+// 				if rand == 0 {
+// 					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+// 					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+// 					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort2-1].RDMAEngine.ToOutside)
+// 				}
+// 				if rand == 1 {
+// 					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+// 					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+// 					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort3-1].RDMAEngine.ToOutside)
+// 				}
+// 			}
+// 		}
+// 	}
+// 	return rdmaAddrTable
+// }
 
-			if !b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
-				b.isContain(assignedgpuID, gpuCoodrinateSide2) &&
-				!b.isContain(assignedgpuID, gpuCoodrinateSide3) &&
-				!b.isContain(assignedgpuID, gpuCoodrinateSide4) {
-				rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
-				rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
-				rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort2-1].RDMAEngine.ToOutside)
-			}
+// func (b *R9NanoPlatformBuilder) setCenterRDMAAddrTable(
+// 	gpuCoodrinateSide1 []gpuCoodrinate,
+// 	gpuCoodrinateSide2 []gpuCoodrinate,
+// 	gpuCoodrinateSide3 []gpuCoodrinate,
+// 	gpuCoodrinateSide4 []gpuCoodrinate,
+// 	gpuPort1 int,
+// 	gpuPort2 int,
+// 	gpuPort3 int,
+// 	gpuPort4 int,
+// 	maxNumHops int, gpuLocationX int, gpuLocationY int,
+// ) mem.GenericLowModuleFinder {
+// 	rdmaAddrTable := mem.AddressBoundary{}
+// 	gpuMatrix := b.gpuMatrix()
+// 	for i, gpu := range gpuMatrix {
+// 		assignedgpuID := gpu.gpuID
+// 		x, y := b.convertGPUIDToCoodrinate(assignedgpuID)
+// 		hops := int(math.Abs(float64(x-gpuLocationX))) + int(math.Abs(float64(y-gpuLocationY)))
+// 		if hops <= maxNumHops {
+// 			rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+// 			rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+// 			rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[i].RDMAEngine.ToOutside)
+// 		} else {
+// 			if b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
+// 				!b.isContain(assignedgpuID, gpuCoodrinateSide2) &&
+// 				!b.isContain(assignedgpuID, gpuCoodrinateSide3) &&
+// 				!b.isContain(assignedgpuID, gpuCoodrinateSide4) {
+// 				rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+// 				rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+// 				rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort1-1].RDMAEngine.ToOutside)
+// 			}
 
-			if !b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
-				!b.isContain(assignedgpuID, gpuCoodrinateSide2) &&
-				b.isContain(assignedgpuID, gpuCoodrinateSide3) &&
-				!b.isContain(assignedgpuID, gpuCoodrinateSide4) {
-				rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
-				rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
-				rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort3-1].RDMAEngine.ToOutside)
-			}
+// 			if !b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
+// 				b.isContain(assignedgpuID, gpuCoodrinateSide2) &&
+// 				!b.isContain(assignedgpuID, gpuCoodrinateSide3) &&
+// 				!b.isContain(assignedgpuID, gpuCoodrinateSide4) {
+// 				rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+// 				rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+// 				rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort2-1].RDMAEngine.ToOutside)
+// 			}
 
-			if !b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
-				!b.isContain(assignedgpuID, gpuCoodrinateSide2) &&
-				!b.isContain(assignedgpuID, gpuCoodrinateSide3) &&
-				b.isContain(assignedgpuID, gpuCoodrinateSide4) {
-				rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
-				rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
-				rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort4-1].RDMAEngine.ToOutside)
-			}
+// 			if !b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
+// 				!b.isContain(assignedgpuID, gpuCoodrinateSide2) &&
+// 				b.isContain(assignedgpuID, gpuCoodrinateSide3) &&
+// 				!b.isContain(assignedgpuID, gpuCoodrinateSide4) {
+// 				rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+// 				rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+// 				rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort3-1].RDMAEngine.ToOutside)
+// 			}
 
-			if b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
-				b.isContain(assignedgpuID, gpuCoodrinateSide2) &&
-				!b.isContain(assignedgpuID, gpuCoodrinateSide3) &&
-				!b.isContain(assignedgpuID, gpuCoodrinateSide4) {
-				rand := rand.Intn(2)
-				if rand == 0 {
-					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
-					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
-					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort1-1].RDMAEngine.ToOutside)
-				}
-				if rand == 1 {
-					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
-					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
-					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort2-1].RDMAEngine.ToOutside)
-				}
-			}
-			if b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
-				!b.isContain(assignedgpuID, gpuCoodrinateSide2) &&
-				!b.isContain(assignedgpuID, gpuCoodrinateSide3) &&
-				b.isContain(assignedgpuID, gpuCoodrinateSide4) {
-				rand := rand.Intn(2)
-				if rand == 0 {
-					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
-					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
-					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort1-1].RDMAEngine.ToOutside)
-				}
-				if rand == 1 {
-					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
-					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
-					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort4-1].RDMAEngine.ToOutside)
-				}
-			}
-			if !b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
-				b.isContain(assignedgpuID, gpuCoodrinateSide2) &&
-				b.isContain(assignedgpuID, gpuCoodrinateSide3) &&
-				!b.isContain(assignedgpuID, gpuCoodrinateSide4) {
-				rand := rand.Intn(2)
-				if rand == 0 {
-					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
-					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
-					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort2-1].RDMAEngine.ToOutside)
-				}
-				if rand == 1 {
-					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
-					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
-					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort3-1].RDMAEngine.ToOutside)
-				}
-			}
-			if !b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
-				!b.isContain(assignedgpuID, gpuCoodrinateSide2) &&
-				b.isContain(assignedgpuID, gpuCoodrinateSide3) &&
-				b.isContain(assignedgpuID, gpuCoodrinateSide4) {
-				rand := rand.Intn(2)
-				if rand == 0 {
-					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
-					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
-					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort3-1].RDMAEngine.ToOutside)
-				}
-				if rand == 1 {
-					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
-					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
-					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort4-1].RDMAEngine.ToOutside)
-				}
-			}
-		}
-	}
-	return rdmaAddrTable
-}
+// 			if !b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
+// 				!b.isContain(assignedgpuID, gpuCoodrinateSide2) &&
+// 				!b.isContain(assignedgpuID, gpuCoodrinateSide3) &&
+// 				b.isContain(assignedgpuID, gpuCoodrinateSide4) {
+// 				rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+// 				rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+// 				rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort4-1].RDMAEngine.ToOutside)
+// 			}
 
-func (b *R9NanoPlatformBuilder) setRDMAAddrTable(gpuLocationX int, gpuLocationY int, maxNumHops int) *mem.AddressBoundary {
-	// var gpuLocationX, gpuLocationY int
-	newrdmaAddrTable := b.createRDMAAddrTable()
-	rdmaAddrTable := mem.AddressBoundary{}
-	// gpuLocationX, gpuLocationY = b.convertGPUIDToCoodrinate(gpuID)
-	upPort, downPort, leftPort, rightPort := b.sellectPortGPU(gpuLocationX, gpuLocationY, maxNumHops)
-	gpuCoodrinateListUp, gpuCoodrinateListDown, gpuCoodrinateListLeft, gpuCoodrinateListRight := b.gpuMatrixPartation(gpuLocationX, gpuLocationY)
-	if gpuLocationX == 0 && gpuLocationY == 0 {
-		rdmaAddrTable = b.setConnerRDMATable(gpuCoodrinateListDown, gpuCoodrinateListRight, downPort, rightPort, maxNumHops, gpuLocationX, gpuLocationY)
-	}
-	if gpuLocationX == (b.tileWidth-1) && gpuLocationY == 0 {
-		rdmaAddrTable = b.setConnerRDMATable(gpuCoodrinateListDown, gpuCoodrinateListLeft, downPort, leftPort, maxNumHops, gpuLocationX, gpuLocationY)
-	}
-	if gpuLocationX == 0 && gpuLocationY == (b.tileHeight-1) {
-		rdmaAddrTable = b.setConnerRDMATable(gpuCoodrinateListUp, gpuCoodrinateListRight, upPort, rightPort, maxNumHops, gpuLocationX, gpuLocationY)
-	}
-	if gpuLocationX == (b.tileWidth-1) && gpuLocationY == (b.tileHeight-1) {
-		rdmaAddrTable = b.setConnerRDMATable(gpuCoodrinateListUp, gpuCoodrinateListLeft, upPort, leftPort, maxNumHops, gpuLocationX, gpuLocationY)
-	}
-	if gpuLocationY == 0 && gpuLocationX != 0 && gpuLocationX != (b.tileWidth-1) {
-		rdmaAddrTable = b.setSideRDMAAddrTable(gpuCoodrinateListLeft, gpuCoodrinateListDown, gpuCoodrinateListRight, leftPort, downPort, rightPort, maxNumHops, gpuLocationX, gpuLocationY)
-	}
-	if gpuLocationY == (b.tileHeight-1) && gpuLocationX != 0 && gpuLocationX != (b.tileWidth-1) {
-		rdmaAddrTable = b.setSideRDMAAddrTable(gpuCoodrinateListLeft, gpuCoodrinateListUp, gpuCoodrinateListRight, leftPort, upPort, rightPort, maxNumHops, gpuLocationX, gpuLocationY)
-	}
-	if gpuLocationX == 0 && gpuLocationY != 0 && gpuLocationY != (b.tileHeight-1) {
-		rdmaAddrTable = b.setSideRDMAAddrTable(gpuCoodrinateListUp, gpuCoodrinateListRight, gpuCoodrinateListDown, upPort, rightPort, downPort, maxNumHops, gpuLocationX, gpuLocationY)
-	}
-	if gpuLocationX == (b.tileWidth-1) && gpuLocationY != 0 && gpuLocationY != (b.tileHeight-1) {
-		rdmaAddrTable = b.setSideRDMAAddrTable(gpuCoodrinateListUp, gpuCoodrinateListLeft, gpuCoodrinateListDown, upPort, leftPort, downPort, maxNumHops, gpuLocationX, gpuLocationY)
-	}
-	if gpuLocationX != 0 && gpuLocationX != (b.tileWidth-1) && gpuLocationY != 0 && gpuLocationY != (b.tileHeight-1) {
-		rdmaAddrTable = b.setCenterRDMAAddrTable(gpuCoodrinateListUp, gpuCoodrinateListRight, gpuCoodrinateListDown, gpuCoodrinateListLeft, upPort, rightPort, downPort, leftPort, maxNumHops, gpuLocationX, gpuLocationY)
-	}
-	newrdmaAddrTable.HighAddr = append(newrdmaAddrTable.HighAddr, rdmaAddrTable.HighAddr...)
-	newrdmaAddrTable.LowAddr = append(newrdmaAddrTable.LowAddr, rdmaAddrTable.LowAddr...)
-	newrdmaAddrTable.LowModules = append(newrdmaAddrTable.LowModules, rdmaAddrTable.LowModules...)
-	return newrdmaAddrTable
-}
+// 			if b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
+// 				b.isContain(assignedgpuID, gpuCoodrinateSide2) &&
+// 				!b.isContain(assignedgpuID, gpuCoodrinateSide3) &&
+// 				!b.isContain(assignedgpuID, gpuCoodrinateSide4) {
+// 				rand := rand.Intn(2)
+// 				if rand == 0 {
+// 					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+// 					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+// 					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort1-1].RDMAEngine.ToOutside)
+// 				}
+// 				if rand == 1 {
+// 					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+// 					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+// 					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort2-1].RDMAEngine.ToOutside)
+// 				}
+// 			}
+// 			if b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
+// 				!b.isContain(assignedgpuID, gpuCoodrinateSide2) &&
+// 				!b.isContain(assignedgpuID, gpuCoodrinateSide3) &&
+// 				b.isContain(assignedgpuID, gpuCoodrinateSide4) {
+// 				rand := rand.Intn(2)
+// 				if rand == 0 {
+// 					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+// 					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+// 					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort1-1].RDMAEngine.ToOutside)
+// 				}
+// 				if rand == 1 {
+// 					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+// 					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+// 					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort4-1].RDMAEngine.ToOutside)
+// 				}
+// 			}
+// 			if !b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
+// 				b.isContain(assignedgpuID, gpuCoodrinateSide2) &&
+// 				b.isContain(assignedgpuID, gpuCoodrinateSide3) &&
+// 				!b.isContain(assignedgpuID, gpuCoodrinateSide4) {
+// 				rand := rand.Intn(2)
+// 				if rand == 0 {
+// 					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+// 					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+// 					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort2-1].RDMAEngine.ToOutside)
+// 				}
+// 				if rand == 1 {
+// 					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+// 					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+// 					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort3-1].RDMAEngine.ToOutside)
+// 				}
+// 			}
+// 			if !b.isContain(assignedgpuID, gpuCoodrinateSide1) &&
+// 				!b.isContain(assignedgpuID, gpuCoodrinateSide2) &&
+// 				b.isContain(assignedgpuID, gpuCoodrinateSide3) &&
+// 				b.isContain(assignedgpuID, gpuCoodrinateSide4) {
+// 				rand := rand.Intn(2)
+// 				if rand == 0 {
+// 					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+// 					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+// 					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort3-1].RDMAEngine.ToOutside)
+// 				}
+// 				if rand == 1 {
+// 					rdmaAddrTable.LowAddr = append(rdmaAddrTable.LowAddr, uint64(assignedgpuID*4)*mem.GB)
+// 					rdmaAddrTable.HighAddr = append(rdmaAddrTable.HighAddr, uint64((assignedgpuID+1)*4)*mem.GB)
+// 					rdmaAddrTable.LowModules = append(rdmaAddrTable.LowModules, b.gpus[gpuPort4-1].RDMAEngine.ToOutside)
+// 				}
+// 			}
+// 		}
+// 	}
+// 	return rdmaAddrTable
+// }
