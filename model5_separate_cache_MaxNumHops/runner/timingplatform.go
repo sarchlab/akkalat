@@ -235,12 +235,17 @@ func (b *R9NanoPlatformBuilder) createGPUs(
 			}
 
 			gpuIndex := b.convertCoordinateToGPUID(x, y)
-			entry.gpuID = gpuIndex
-			entry.lowAddr = uint64(gpuIndex) * 4 * mem.GB
-			entry.highAddr = entry.lowAddr + 4*mem.GB
-			entry.port = b.gpus[gpuIndex-1].RDMAEngine.GetPortByName("Outside")
+			if gpuIndex == 0 {
+				continue
+			} else {
+				entry.gpuID = gpuIndex
+				entry.lowAddr = uint64(gpuIndex) * 4 * mem.GB
+				entry.highAddr = entry.lowAddr + 4*mem.GB
+				// portName := "GPU_" + strconv.Itoa(x) + "_" + strconv.Itoa(y) + ".RDMA.ToOutside"
+				entry.port = b.gpus[gpuIndex-1].RDMAEngine.GetPortByName("ToOutside")
 
-			entries = append(entries, *entry)
+				entries = append(entries, *entry)
+			}
 		}
 	}
 
@@ -263,9 +268,9 @@ func (b *R9NanoPlatformBuilder) setRDMAAddrTable(
 	rdmaAddressTable := new(mem.GenericLowModuleFinder)
 
 	for _, entry := range entries {
-		if entry.x == x && entry.y == y {
-			continue
-		}
+		// if entry.x == x && entry.y == y {
+		// 	continue
+		// }
 
 		if abs(x-entry.x)+abs(y-entry.y) > maxNumHops {
 			// Find all coordinates that are within maxNumHops hops
@@ -296,10 +301,10 @@ func (b *R9NanoPlatformBuilder) setRDMAAddrTable(
 			// Add the chosen entry to the RDMA address table
 			rdmaAddressTable.AddAddressRange(
 				entry.lowAddr, entry.highAddr, chosen.port)
+		} else {
+			rdmaAddressTable.AddAddressRange(
+				entry.lowAddr, entry.highAddr, entry.port)
 		}
-
-		rdmaAddressTable.AddAddressRange(
-			entry.lowAddr, entry.highAddr, entry.port)
 	}
 
 	return rdmaAddressTable
