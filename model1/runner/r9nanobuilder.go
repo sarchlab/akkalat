@@ -241,7 +241,7 @@ func (b *R9NanoGPUBuilder) populateExternalPorts() {
 		b.pageMigrationController.GetPortByName("Remote"))
 
 	for i, l2TLB := range b.l2TLBs {
-		name := fmt.Sprintf("Translation_%02d", i)
+		name := fmt.Sprintf("Translation[%02d]", i)
 		b.gpu.Domain.AddPort(name, l2TLB.GetPortByName("Bottom"))
 	}
 }
@@ -256,7 +256,7 @@ func (b *R9NanoGPUBuilder) createGPU(name string, id uint64) {
 
 func (b *R9NanoGPUBuilder) connectCP() {
 	b.internalConn = sim.NewDirectConnection(
-		b.gpuName+"InternalConn", b.engine, b.freq)
+		b.gpuName+".InternalConn", b.engine, b.freq)
 
 	b.internalConn.PlugIn(b.cp.ToDriver, 1)
 	b.internalConn.PlugIn(b.cp.ToDMA, 128)
@@ -291,7 +291,7 @@ func (b *R9NanoGPUBuilder) connectL1ToL2() {
 	lowModuleFinder.LowAddress = b.memAddrOffset
 	lowModuleFinder.HighAddress = b.memAddrOffset + 4*mem.GB
 
-	l1ToL2Conn := sim.NewDirectConnection(b.gpuName+".L1-L2",
+	l1ToL2Conn := sim.NewDirectConnection(b.gpuName+".L1toL2",
 		b.engine, b.freq)
 
 	b.rdmaEngine.SetLocalModuleFinder(lowModuleFinder)
@@ -322,7 +322,7 @@ func (b *R9NanoGPUBuilder) connectL1ToL2() {
 
 func (b *R9NanoGPUBuilder) connectL2AndDRAM() {
 	b.l2ToDramConnection = sim.NewDirectConnection(
-		b.gpuName+"L2-DRAM", b.engine, b.freq)
+		b.gpuName+".L2toDRAM", b.engine, b.freq)
 
 	lowModuleFinder := mem.NewInterleavedLowModuleFinder(
 		1 << b.log2MemoryBankInterleavingSize)
@@ -349,7 +349,7 @@ func (b *R9NanoGPUBuilder) connectL2AndDRAM() {
 }
 
 func (b *R9NanoGPUBuilder) connectL1TLBToL2TLB() {
-	tlbConn := sim.NewDirectConnection(b.gpuName+"L1TLB-L2TLB",
+	tlbConn := sim.NewDirectConnection(b.gpuName+".L1TLBtoL2TLB",
 		b.engine, b.freq)
 
 	tlbConn.PlugIn(b.l2TLBs[0].GetPortByName("Top"), 64)
@@ -493,7 +493,7 @@ func (b *R9NanoGPUBuilder) buildSAs() {
 	}
 
 	for i := 0; i < b.numShaderArray; i++ {
-		saName := fmt.Sprintf("%s.SA_%02d", b.gpuName, i)
+		saName := fmt.Sprintf("%s.SA[%d]", b.gpuName, i)
 		b.buildSA(saBuilder, saName)
 	}
 }
@@ -510,7 +510,7 @@ func (b *R9NanoGPUBuilder) buildL2Caches() {
 		WithNumReqPerCycle(16)
 
 	for i := 0; i < b.numMemoryBank; i++ {
-		cacheName := fmt.Sprintf("%s.L2_%d", b.gpuName, i)
+		cacheName := fmt.Sprintf("%s.L2[%d]", b.gpuName, i)
 		l2 := l2Builder.WithInterleaving(
 			1<<(b.log2MemoryBankInterleavingSize-b.log2CacheLineSize),
 			b.numMemoryBank,
@@ -537,7 +537,7 @@ func (b *R9NanoGPUBuilder) buildDRAMControllers() {
 	memCtrlBuilder := b.createDramControllerBuilder()
 
 	for i := 0; i < b.numMemoryBank; i++ {
-		dramName := fmt.Sprintf("%s.DRAM_%d", b.gpuName, i)
+		dramName := fmt.Sprintf("%s.DRAM[%d]", b.gpuName, i)
 		dram := memCtrlBuilder.
 			Build(dramName)
 		// dram := idealmemcontroller.New(

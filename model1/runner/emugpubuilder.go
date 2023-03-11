@@ -136,7 +136,7 @@ func (b *EmuGPUBuilder) buildComputeUnits() {
 
 	for i := 0; i < 64; i++ {
 		computeUnit := emu.BuildComputeUnit(
-			fmt.Sprintf("%s.CU%d", b.gpuName, i),
+			fmt.Sprintf("%s.CU[%d]", b.gpuName, i),
 			b.engine, disassembler, b.pageTable,
 			b.log2PageSize, b.gpuMem.Storage, nil)
 
@@ -144,7 +144,7 @@ func (b *EmuGPUBuilder) buildComputeUnits() {
 
 		if b.enableISADebug {
 			isaDebug, err := os.Create(
-				fmt.Sprintf("isa_%s.debug", computeUnit.Name()))
+				fmt.Sprintf("isa[%s].debug", computeUnit.Name()))
 			if err != nil {
 				log.Fatal(err.Error())
 			}

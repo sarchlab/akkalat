@@ -256,8 +256,7 @@ func (b R9NanoPlatformBuilder) createConnection(
 		WithFreq(1 * sim.GHz).
 		WithFlitSize(16).
 		WithBandwidth(float64(b.bandwidth)).
-		WithSwitchLatency(b.switchLatency).
-		WithMaxNumHop(b.maxNumHops)
+		WithSwitchLatency(b.switchLatency)
 
 	if b.traceVis {
 		connector = connector.WithVisTracer(b.visTracer)
@@ -382,7 +381,8 @@ func (b *R9NanoPlatformBuilder) createGPU(
 	connector *mesh.Connector,
 ) *GPU {
 	index := uint64(len(b.gpus)) + 1
-	name := fmt.Sprintf("GPU_%d_%d", x, y)
+	gpuid := x + y*x
+	name := fmt.Sprintf("GPU[%d]", gpuid)
 	memAddrOffset := index * 4 * mem.GB
 	gpu := gpuBuilder.
 		WithMemAddrOffset(memAddrOffset).

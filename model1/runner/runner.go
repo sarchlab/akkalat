@@ -133,6 +133,7 @@ type Runner struct {
 }
 
 // ParseFlag applies the runner flag to runner object
+//
 //nolint:gocyclo
 func (r *Runner) ParseFlag() *Runner {
 	if *parallelFlag {
@@ -295,7 +296,7 @@ func (r *Runner) buildTimingPlatform() {
 
 	r.platform = b.Build()
 
-	r.monitor.StartServer()
+	r.monitor.StartServer(0)
 }
 
 func (r *Runner) addMaxInstStopper() {
