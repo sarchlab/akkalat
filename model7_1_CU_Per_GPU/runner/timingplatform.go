@@ -216,7 +216,7 @@ func (b *R9NanoPlatformBuilder) createVisTracer() {
 
 func (b *R9NanoPlatformBuilder) createGPUs(
 	connector *mesh.Connector,
-	gpuBuilder R9NanoGPUBuilder,
+	gpuBuilder CULevelGPUBuilder,
 	gpuDriver *driver.Driver,
 	rdmaAddressTable *mem.BankedLowModuleFinder,
 	pmcAddressTable *mem.BankedLowModuleFinder,

@@ -1,4 +1,4 @@
-package runner
+package GPU_configutation
 
 import (
 	"fmt"
@@ -18,7 +18,7 @@ import (
 	"gitlab.com/akita/mgpusim/v3/timing/pagemigrationcontroller"
 )
 
-type cULevelGPUBuilder struct {
+type CULevelGPUBuilder struct {
 	engine                         sim.Engine
 	frequency                      sim.Freq
 	memoryAddressOffset            uint64
