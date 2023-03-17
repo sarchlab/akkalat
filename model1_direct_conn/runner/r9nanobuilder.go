@@ -349,7 +349,7 @@ func (b *R9NanoGPUBuilder) connectL2AndDRAM() {
 }
 
 func (b *R9NanoGPUBuilder) connectL1TLBToL2TLB() {
-	tlbConn := sim.NewDirectConnection(b.gpuName+"L1TLB-L2TLB",
+	tlbConn := sim.NewDirectConnection(b.gpuName+"L1TLBtoL2TLB",
 		b.engine, b.freq)
 
 	tlbConn.PlugIn(b.l2TLBs[0].GetPortByName("Top"), 64)
