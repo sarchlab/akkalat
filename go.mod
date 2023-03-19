@@ -29,7 +29,11 @@ require (
 	github.com/xdg-go/stringprep v1.0.4 // indirect
 	github.com/youmark/pkcs8 v0.0.0-20201027041543-1326539a0a0a // indirect
 	github.com/yusufpapurcu/wmi v1.2.2 // indirect
+	gitlab.com/akita/akita v1.12.1 // indirect
 	gitlab.com/akita/dnn v0.5.3 // indirect
+	gitlab.com/akita/mem v1.11.3 // indirect
+	gitlab.com/akita/mgpusim v1.10.2 // indirect
+	gitlab.com/akita/util v0.7.1 // indirect
 	go.mongodb.org/mongo-driver v1.11.1 // indirect
 	golang.org/x/crypto v0.4.0 // indirect
 	golang.org/x/sync v0.1.0 // indirect

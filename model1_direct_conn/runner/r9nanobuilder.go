@@ -291,7 +291,7 @@ func (b *R9NanoGPUBuilder) connectL1ToL2() {
 	lowModuleFinder.LowAddress = b.memAddrOffset
 	lowModuleFinder.HighAddress = b.memAddrOffset + 4*mem.GB
 
-	l1ToL2Conn := sim.NewDirectConnection(b.gpuName+".L1-L2",
+	l1ToL2Conn := sim.NewDirectConnection(b.gpuName+".L1toL2",
 		b.engine, b.freq)
 
 	b.rdmaEngine.SetLocalModuleFinder(lowModuleFinder)
@@ -322,7 +322,7 @@ func (b *R9NanoGPUBuilder) connectL1ToL2() {
 
 func (b *R9NanoGPUBuilder) connectL2AndDRAM() {
 	b.l2ToDramConnection = sim.NewDirectConnection(
-		b.gpuName+"L2-DRAM", b.engine, b.freq)
+		b.gpuName+"L2toDRAM", b.engine, b.freq)
 
 	lowModuleFinder := mem.NewInterleavedLowModuleFinder(
 		1 << b.log2MemoryBankInterleavingSize)

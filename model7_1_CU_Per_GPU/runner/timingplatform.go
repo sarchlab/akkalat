@@ -310,14 +310,11 @@ func (b *R9NanoPlatformBuilder) createGPUBuilder(
 	engine sim.Engine,
 	gpuDriver *driver.Driver,
 	mmuComponent *mmu.MMU,
-) R9NanoGPUBuilder {
-	gpuBuilder := MakeR9NanoGPUBuilder().
+) CULevelGPUBuilder {
+	gpuBuilder := MakeCULevelGPUBuider().
 		WithEngine(engine).
 		WithMMU(mmuComponent).
-		WithNumCUPerShaderArray(b.numCUPerSA).
-		WithNumShaderArray(b.numSAPerGPU).
 		WithNumMemoryBank(8).
-		WithL2CacheSize(2 * mem.MB).
 		WithLog2MemoryBankInterleavingSize(7).
 		WithLog2PageSize(b.log2PageSize).
 		WithGlobalStorage(b.globalStorage)
@@ -334,8 +331,8 @@ func (b *R9NanoPlatformBuilder) createGPUBuilder(
 }
 
 func (b *R9NanoPlatformBuilder) setISADebugger(
-	gpuBuilder R9NanoGPUBuilder,
-) R9NanoGPUBuilder {
+	gpuBuilder CULevelGPUBuilder,
+) CULevelGPUBuilder {
 	if !b.debugISA {
 		return gpuBuilder
 	}
@@ -345,8 +342,8 @@ func (b *R9NanoPlatformBuilder) setISADebugger(
 }
 
 func (b *R9NanoPlatformBuilder) setMemTracer(
-	gpuBuilder R9NanoGPUBuilder,
-) R9NanoGPUBuilder {
+	gpuBuilder CULevelGPUBuilder,
+) CULevelGPUBuilder {
 	if !b.traceMem {
 		return gpuBuilder
 	}
@@ -363,8 +360,8 @@ func (b *R9NanoPlatformBuilder) setMemTracer(
 
 func (b *R9NanoPlatformBuilder) setVisTracer(
 	gpuDriver *driver.Driver,
-	gpuBuilder R9NanoGPUBuilder,
-) R9NanoGPUBuilder {
+	gpuBuilder CULevelGPUBuilder,
+) CULevelGPUBuilder {
 	if b.traceVis {
 		gpuBuilder = gpuBuilder.WithVisTracer(b.visTracer)
 	}
@@ -374,7 +371,7 @@ func (b *R9NanoPlatformBuilder) setVisTracer(
 
 func (b *R9NanoPlatformBuilder) createGPU(
 	x, y int,
-	gpuBuilder R9NanoGPUBuilder,
+	gpuBuilder CULevelGPUBuilder,
 	gpuDriver *driver.Driver,
 	rdmaAddressTable *mem.BankedLowModuleFinder,
 	pmcAddressTable *mem.BankedLowModuleFinder,

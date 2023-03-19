@@ -226,9 +226,6 @@ func (r *Runner) defineMetrics() {
 	r.addMaxInstStopper()
 	r.addKernelTimeTracer()
 	r.addInstCountTracer()
-	r.addCacheLatencyTracer()
-	r.addCacheHitRateTracer()
-	r.addTLBHitRateTracer()
 	r.addRDMAEngineTracer()
 	r.addDRAMTracer()
 
@@ -306,9 +303,7 @@ func (r *Runner) addMaxInstStopper() {
 
 	r.maxInstStopper = newInstStopper(*maxInstCount)
 	for _, gpu := range r.platform.GPUs {
-		for _, cu := range gpu.CUs {
-			tracing.CollectTrace(cu.(tracing.NamedHookable), r.maxInstStopper)
-		}
+		tracing.CollectTrace(gpu.CU.(tracing.NamedHookable), r.maxInstStopper)
 	}
 }
 
@@ -338,147 +333,15 @@ func (r *Runner) addInstCountTracer() {
 	}
 
 	for _, gpu := range r.platform.GPUs {
-		for _, cu := range gpu.CUs {
-			tracer := newInstTracer()
-			r.instCountTracers = append(r.instCountTracers,
-				instCountTracer{
-					tracer: tracer,
-					cu:     cu,
-				})
-			tracing.CollectTrace(cu.(tracing.NamedHookable), tracer)
-		}
-	}
-}
-
-func (r *Runner) addCacheLatencyTracer() {
-	if !r.ReportCacheLatency {
-		return
-	}
-
-	for _, gpu := range r.platform.GPUs {
-		for _, cache := range gpu.L1ICaches {
-			tracer := tracing.NewAverageTimeTracer(
-				r.platform.Engine,
-				func(task tracing.Task) bool {
-					return task.Kind == "req_in"
-				})
-			r.cacheLatencyTracers = append(r.cacheLatencyTracers,
-				cacheLatencyTracer{tracer: tracer, cache: cache})
-			tracing.CollectTrace(cache, tracer)
-		}
-
-		for _, cache := range gpu.L1SCaches {
-			tracer := tracing.NewAverageTimeTracer(
-				r.platform.Engine,
-				func(task tracing.Task) bool {
-					return task.Kind == "req_in"
-				})
-			r.cacheLatencyTracers = append(r.cacheLatencyTracers,
-				cacheLatencyTracer{tracer: tracer, cache: cache})
-			tracing.CollectTrace(cache, tracer)
-		}
-
-		for _, cache := range gpu.L1VCaches {
-			tracer := tracing.NewAverageTimeTracer(
-				r.platform.Engine,
-				func(task tracing.Task) bool {
-					return task.Kind == "req_in"
-				})
-			r.cacheLatencyTracers = append(r.cacheLatencyTracers,
-				cacheLatencyTracer{tracer: tracer, cache: cache})
-			tracing.CollectTrace(cache, tracer)
-		}
-
-		for _, cache := range gpu.L2Caches {
-			tracer := tracing.NewAverageTimeTracer(
-				r.platform.Engine,
-				func(task tracing.Task) bool {
-					return task.Kind == "req_in"
-				})
-			r.cacheLatencyTracers = append(r.cacheLatencyTracers,
-				cacheLatencyTracer{tracer: tracer, cache: cache})
-			tracing.CollectTrace(cache, tracer)
-		}
-	}
-}
-
-func (r *Runner) addCacheHitRateTracer() {
-	if !r.ReportCacheHitRate {
-		return
-	}
-
-	for _, gpu := range r.platform.GPUs {
-		for _, cache := range gpu.L1VCaches {
-			tracer := tracing.NewStepCountTracer(
-				func(task tracing.Task) bool { return true })
-			r.cacheHitRateTracers = append(r.cacheHitRateTracers,
-				cacheHitRateTracer{tracer: tracer, cache: cache})
-			tracing.CollectTrace(cache, tracer)
-		}
-
-		for _, cache := range gpu.L1SCaches {
-			tracer := tracing.NewStepCountTracer(
-				func(task tracing.Task) bool { return true })
-			r.cacheHitRateTracers = append(r.cacheHitRateTracers,
-				cacheHitRateTracer{tracer: tracer, cache: cache})
-			tracing.CollectTrace(cache, tracer)
-		}
-
-		for _, cache := range gpu.L1ICaches {
-			tracer := tracing.NewStepCountTracer(
-				func(task tracing.Task) bool { return true })
-			r.cacheHitRateTracers = append(r.cacheHitRateTracers,
-				cacheHitRateTracer{tracer: tracer, cache: cache})
-			tracing.CollectTrace(cache, tracer)
-		}
-
-		for _, cache := range gpu.L2Caches {
-			tracer := tracing.NewStepCountTracer(
-				func(task tracing.Task) bool { return true })
-			r.cacheHitRateTracers = append(r.cacheHitRateTracers,
-				cacheHitRateTracer{tracer: tracer, cache: cache})
-			tracing.CollectTrace(cache, tracer)
-		}
-	}
-}
-
-func (r *Runner) addTLBHitRateTracer() {
-	if !r.ReportTLBHitRate {
-		return
-	}
-
-	for _, gpu := range r.platform.GPUs {
-		for _, tlb := range gpu.L1VTLBs {
-			tracer := tracing.NewStepCountTracer(
-				func(task tracing.Task) bool { return true })
-			r.tlbHitRateTracers = append(r.tlbHitRateTracers,
-				tlbHitRateTracer{tracer: tracer, tlb: tlb})
-			tracing.CollectTrace(tlb, tracer)
-		}
-
-		for _, tlb := range gpu.L1STLBs {
-			tracer := tracing.NewStepCountTracer(
-				func(task tracing.Task) bool { return true })
-			r.tlbHitRateTracers = append(r.tlbHitRateTracers,
-				tlbHitRateTracer{tracer: tracer, tlb: tlb})
-			tracing.CollectTrace(tlb, tracer)
-		}
-
-		for _, tlb := range gpu.L1ITLBs {
-			tracer := tracing.NewStepCountTracer(
-				func(task tracing.Task) bool { return true })
-			r.tlbHitRateTracers = append(r.tlbHitRateTracers,
-				tlbHitRateTracer{tracer: tracer, tlb: tlb})
-			tracing.CollectTrace(tlb, tracer)
-		}
-
-		for _, tlb := range gpu.L2TLBs {
-			tracer := tracing.NewStepCountTracer(
-				func(task tracing.Task) bool { return true })
-			r.tlbHitRateTracers = append(r.tlbHitRateTracers,
-				tlbHitRateTracer{tracer: tracer, tlb: tlb})
-			tracing.CollectTrace(tlb, tracer)
-		}
+		// for _, cu := range gpu.CUs {
+		tracer := newInstTracer()
+		r.instCountTracers = append(r.instCountTracers,
+			instCountTracer{
+				tracer: tracer,
+				cu:     gpu.CU,
+			})
+		tracing.CollectTrace(gpu.CU.(tracing.NamedHookable), tracer)
+		// }
 	}
 }
 
@@ -534,15 +397,15 @@ func (r *Runner) addDRAMTracer() {
 	}
 
 	for _, gpu := range r.platform.GPUs {
-		for _, dram := range gpu.MemControllers {
-			t := dramTransactionCountTracer{}
-			t.dram = dram.(TraceableComponent)
-			t.tracer = newDramTracer()
+		dram := gpu.MemController
+		t := dramTransactionCountTracer{}
+		t.dram = dram.(TraceableComponent)
+		t.tracer = newDramTracer()
 
-			tracing.CollectTrace(t.dram, t.tracer)
+		tracing.CollectTrace(t.dram, t.tracer)
 
-			r.dramTracers = append(r.dramTracers, t)
-		}
+		r.dramTracers = append(r.dramTracers, t)
+
 	}
 }
 

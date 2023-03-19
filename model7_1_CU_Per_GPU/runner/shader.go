@@ -1,4 +1,4 @@
-package GPU_configutation
+package runner
 
 import (
 	"fmt"
