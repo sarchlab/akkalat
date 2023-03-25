@@ -12,6 +12,7 @@ import (
 	"gitlab.com/akita/mem/v3/cache/writeback"
 	"gitlab.com/akita/mem/v3/cache/writethrough"
 	"gitlab.com/akita/mem/v3/dram"
+	"gitlab.com/akita/mem/v3/idealmemcontroller"
 	"gitlab.com/akita/mem/v3/mem"
 	"gitlab.com/akita/mem/v3/vm/addresstranslator"
 	"gitlab.com/akita/mem/v3/vm/mmu"
@@ -44,26 +45,27 @@ type R9NanoGPUBuilder struct {
 	memTracer          tracing.Tracer
 	monitor            *monitoring.Monitor
 
-	gpuName                 string
-	gpu                     *GPU
-	gpuID                   uint64
-	cp                      *cp.CommandProcessor
-	cus                     []*cu.ComputeUnit
-	l1vReorderBuffers       []*rob2.ReorderBuffer
-	l1iReorderBuffers       []*rob2.ReorderBuffer
-	l1sReorderBuffers       []*rob2.ReorderBuffer
-	l1vCaches               []*writearound.Cache
-	l1sCaches               []*writethrough.Cache
-	l1iCaches               []*writethrough.Cache
-	l2Caches                []*writeback.Cache
-	l1vAddrTrans            []*addresstranslator.AddressTranslator
-	l1sAddrTrans            []*addresstranslator.AddressTranslator
-	l1iAddrTrans            []*addresstranslator.AddressTranslator
-	l1vTLBs                 []*tlb.TLB
-	l1sTLBs                 []*tlb.TLB
-	l1iTLBs                 []*tlb.TLB
-	l2TLBs                  []*tlb.TLB
-	drams                   []*dram.MemController
+	gpuName           string
+	gpu               *GPU
+	gpuID             uint64
+	cp                *cp.CommandProcessor
+	cus               []*cu.ComputeUnit
+	l1vReorderBuffers []*rob2.ReorderBuffer
+	l1iReorderBuffers []*rob2.ReorderBuffer
+	l1sReorderBuffers []*rob2.ReorderBuffer
+	l1vCaches         []*writearound.Cache
+	l1sCaches         []*writethrough.Cache
+	l1iCaches         []*writethrough.Cache
+	l2Caches          []*writeback.Cache
+	l1vAddrTrans      []*addresstranslator.AddressTranslator
+	l1sAddrTrans      []*addresstranslator.AddressTranslator
+	l1iAddrTrans      []*addresstranslator.AddressTranslator
+	l1vTLBs           []*tlb.TLB
+	l1sTLBs           []*tlb.TLB
+	l1iTLBs           []*tlb.TLB
+	l2TLBs            []*tlb.TLB
+	// drams                   []*dram.MemController
+	drams                   []*idealmemcontroller.Comp
 	lowModuleFinderForL1    *mem.InterleavedLowModuleFinder
 	lowModuleFinderForL2    *mem.InterleavedLowModuleFinder
 	lowModuleFinderForPMC   *mem.InterleavedLowModuleFinder
@@ -534,15 +536,15 @@ func (b *R9NanoGPUBuilder) buildL2Caches() {
 }
 
 func (b *R9NanoGPUBuilder) buildDRAMControllers() {
-	memCtrlBuilder := b.createDramControllerBuilder()
+	// memCtrlBuilder := b.createDramControllerBuilder()
 
 	for i := 0; i < b.numMemoryBank; i++ {
-		dramName := fmt.Sprintf("%s.DRAM[%d]", b.gpuName, i)
-		dram := memCtrlBuilder.
-			Build(dramName)
-		// dram := idealmemcontroller.New(
-		// 	fmt.Sprintf("%s.DRAM_%d", b.gpuName, i),
-		// 	b.engine, 512*mem.MB)
+		// dramName := fmt.Sprintf("%s.DRAM[%d]", b.gpuName, i)
+		// dram := memCtrlBuilder.
+		// 	Build(dramName)
+		dram := idealmemcontroller.New(
+			fmt.Sprintf("%s.DRAM[%d]", b.gpuName, i),
+			b.engine, 512*mem.MB)
 		b.drams = append(b.drams, dram)
 		b.gpu.MemControllers = append(b.gpu.MemControllers, dram)
 

@@ -293,7 +293,7 @@ func (r *Runner) buildTimingPlatform() {
 
 	r.platform = b.Build()
 
-	r.monitor.StartServer(0)
+	r.monitor.StartServer()
 }
 
 func (r *Runner) addMaxInstStopper() {
@@ -395,23 +395,22 @@ func (r *Runner) addDRAMTracer() {
 	if !r.ReportDRAMTransactionCount {
 		return
 	}
-
 	for _, gpu := range r.platform.GPUs {
-		dram := gpu.MemController
-		t := dramTransactionCountTracer{}
-		t.dram = dram.(TraceableComponent)
-		t.tracer = newDramTracer()
+		for _, dram := range gpu.MemControllers {
+			t := dramTransactionCountTracer{}
+			t.dram = dram.(TraceableComponent)
+			t.tracer = newDramTracer()
 
-		tracing.CollectTrace(t.dram, t.tracer)
+			tracing.CollectTrace(t.dram, t.tracer)
 
-		r.dramTracers = append(r.dramTracers, t)
-
+			r.dramTracers = append(r.dramTracers, t)
+		}
 	}
 }
 
 func (r *Runner) createUnifiedGPUs() {
-	gpulist := make([]int, 49)
-	for i, _ := range gpulist {
+	gpulist := make([]int, 120)
+	for i := 0; i < 120; i++ {
 		gpulist[i] = i + 1
 	}
 	unifiedGPUID := r.platform.Driver.CreateUnifiedGPU(nil, gpulist)
