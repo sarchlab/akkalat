@@ -547,7 +547,7 @@ func (r *Runner) addDRAMTracer() {
 }
 
 func (r *Runner) createUnifiedGPUs() {
-	gpulist := make([]int, 384)
+	gpulist := make([]int, 383)
 	for i := range gpulist {
 		gpulist[i] = i + 1
 	}

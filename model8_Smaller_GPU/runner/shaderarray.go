@@ -55,7 +55,7 @@ func makeShaderArrayBuilder() shaderArrayBuilder {
 	b := shaderArrayBuilder{
 		gpuID:             0,
 		name:              "SA",
-		numCU:             4,
+		numCU:             1,
 		freq:              1 * sim.GHz,
 		log2CacheLineSize: 6,
 		log2PageSize:      12,

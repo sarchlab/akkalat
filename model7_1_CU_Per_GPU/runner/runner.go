@@ -409,8 +409,8 @@ func (r *Runner) addDRAMTracer() {
 }
 
 func (r *Runner) createUnifiedGPUs() {
-	gpulist := make([]int, 120)
-	for i := 0; i < 120; i++ {
+	gpulist := make([]int, 1536)
+	for i := 0; i < 1536; i++ {
 		gpulist[i] = i + 1
 	}
 	unifiedGPUID := r.platform.Driver.CreateUnifiedGPU(nil, gpulist)

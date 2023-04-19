@@ -12,7 +12,6 @@ import (
 	"gitlab.com/akita/mem/v3/cache/writeback"
 	"gitlab.com/akita/mem/v3/cache/writethrough"
 	"gitlab.com/akita/mem/v3/dram"
-	"gitlab.com/akita/mem/v3/idealmemcontroller"
 	"gitlab.com/akita/mem/v3/mem"
 	"gitlab.com/akita/mem/v3/vm/addresstranslator"
 	"gitlab.com/akita/mem/v3/vm/mmu"
@@ -64,8 +63,8 @@ type R9NanoGPUBuilder struct {
 	l1sTLBs           []*tlb.TLB
 	l1iTLBs           []*tlb.TLB
 	l2TLBs            []*tlb.TLB
-	// drams                   []*dram.MemController
-	drams                   []*idealmemcontroller.Comp
+	drams             []*dram.MemController
+	// drams                   []*idealmemcontroller.Comp
 	lowModuleFinderForL1    *mem.InterleavedLowModuleFinder
 	lowModuleFinderForL2    *mem.InterleavedLowModuleFinder
 	lowModuleFinderForPMC   *mem.InterleavedLowModuleFinder
@@ -536,15 +535,14 @@ func (b *R9NanoGPUBuilder) buildL2Caches() {
 }
 
 func (b *R9NanoGPUBuilder) buildDRAMControllers() {
-	// memCtrlBuilder := b.createDramControllerBuilder()
+	memCtrlBuilder := b.createDramControllerBuilder()
 
 	for i := 0; i < b.numMemoryBank; i++ {
-		// dramName := fmt.Sprintf("%s.DRAM[%d]", b.gpuName, i)
-		// dram := memCtrlBuilder.
-		// 	Build(dramName)
-		dram := idealmemcontroller.New(
-			fmt.Sprintf("%s.DRAM[%d]", b.gpuName, i),
-			b.engine, 512*mem.MB)
+		dramName := fmt.Sprintf("%s.DRAM[%d]", b.gpuName, i)
+		dram := memCtrlBuilder.Build(dramName)
+		// dram := idealmemcontroller.New(
+		// 	fmt.Sprintf("%s.DRAM[%d]", b.gpuName, i),
+		// 	b.engine, 512*mem.MB)
 		b.drams = append(b.drams, dram)
 		b.gpu.MemControllers = append(b.gpu.MemControllers, dram)
 

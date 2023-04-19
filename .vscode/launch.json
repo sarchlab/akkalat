@@ -13,11 +13,11 @@
 			"justMyCode": true
 		},
 		{
-			"name": "FIR-model7",
+			"name": "FIR-model8",
 			"type": "go",
 			"request": "launch",
 			"mode": "auto",
-			"program": "${workspaceFolder}/model7_1_CU_Per_GPU",
+			"program": "${workspaceFolder}/model8_Smaller_GPU",
 			"args": [
 				"-timing",
 				"-magic-memory-copy",
@@ -31,11 +31,26 @@
 			"type": "go",
 			"request": "launch",
 			"mode": "auto",
-			"program": "${workspaceFolder}/model1",
+			"program": "/home/daoxuan/daoxuan_wafer_scale/src/akkalat/model1",
 			"args": [
 				"-timing",
 				"-magic-memory-copy",
 				"-benchmark=fir",
+				"-report-all",
+				"-num-memory-banks=8"
+			],
+			// "envFile": "${workspaceFolder}/../.env",
+		},
+		{
+			"name": "FIR-model6 atax",
+			"type": "go",
+			"request": "launch",
+			"mode": "auto",
+			"program": "${workspaceFolder}/model6_48_Small_GPU",
+			"args": [
+				"-timing",
+				"-magic-memory-copy",
+				"-benchmark=atax",
 				"-report-all"
 			],
 			// "envFile": "${workspaceFolder}/../.env",

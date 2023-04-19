@@ -147,7 +147,7 @@ func (b *shaderBuilder) buildCU(s *shader) {
 	cuBuilder := cu.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
-		WithLog2CachelineSize(b.log2CacheLineSize)
+		WithLog2CachelineSize(0)
 
 	cuName := fmt.Sprintf("%s.CU", b.name)
 	computeUnit := cuBuilder.Build(cuName)

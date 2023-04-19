@@ -227,7 +227,7 @@ func (b *shaderArrayBuilder) connectInstMem(sa *shaderArray) {
 	l1i.SetLowModuleFinder(&mem.SingleLowModuleFinder{
 		LowModule: atTopPort,
 	})
-	b.connectWithDirectConnection(l1i.GetPortByName("Bottom"), atTopPort, 8)
+	b.connectWithDirectConnection(l1i.GetPortByName("Bottom"), atTopPort, 64)
 
 	tlbTopPort := tlb.GetPortByName("Top")
 	at.SetTranslationProvider(tlbTopPort)

@@ -64,6 +64,8 @@ var bandwidthFlag = flag.Int("bandwidth", 1,
 	"The bandwidth of the network as a multiple of 16GB/s.")
 var maxNumHopsFlag = flag.Int("max-num-hops", -1,
 	"The maximum number of hops in the network")
+var numMemBankFlag = flag.Int("num-memory-banks", 16,
+	"The maximum number of hops in the network")
 
 type verificationPreEnablingBenchmark interface {
 	benchmarks.Benchmark
@@ -294,7 +296,7 @@ func (r *Runner) buildTimingPlatform() {
 		b = b.WithMagicMemoryCopy()
 	}
 
-	r.platform = b.Build()
+	r.platform = b.Build(*numMemBankFlag)
 
 	r.monitor.StartServer()
 }

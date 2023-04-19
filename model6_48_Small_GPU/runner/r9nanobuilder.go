@@ -88,7 +88,7 @@ func MakeR9NanoGPUBuilder() R9NanoGPUBuilder {
 		log2CacheLineSize:              3,
 		log2PageSize:                   12,
 		log2MemoryBankInterleavingSize: 12,
-		l2CacheSize:                    1 * mem.MB,
+		l2CacheSize:                    2 * mem.MB,
 		dramSize:                       4 * mem.GB,
 	}
 	return b
@@ -504,9 +504,9 @@ func (b *R9NanoGPUBuilder) buildL2Caches() {
 		WithEngine(b.engine).
 		WithFreq(b.freq).
 		WithLog2BlockSize(b.log2CacheLineSize).
-		WithWayAssociativity(8).
+		WithWayAssociativity(16).
 		WithByteSize(byteSize).
-		WithNumMSHREntry(32).
+		WithNumMSHREntry(64).
 		WithNumReqPerCycle(16)
 
 	for i := 0; i < b.numMemoryBank; i++ {

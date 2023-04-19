@@ -381,7 +381,7 @@ func (b *R9NanoPlatformBuilder) createGPU(
 	connector *mesh.Connector,
 ) *GPU {
 	index := uint64(len(b.gpus)) + 1
-	gpuid := x + y*x
+	gpuid := x + y*b.tileWidth
 	name := fmt.Sprintf("GPU[%d]", gpuid)
 	memAddrOffset := index * 4 * mem.GB
 	gpu := gpuBuilder.

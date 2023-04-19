@@ -90,7 +90,7 @@ func MakeR9NanoGPUBuilder() R9NanoGPUBuilder {
 		log2PageSize:                   12,
 		log2MemoryBankInterleavingSize: 12,
 		l2CacheSize:                    2 * mem.MB,
-		dramSize:                       128 * mem.MB,
+		dramSize:                       4 * mem.GB,
 	}
 	return b
 }
@@ -290,7 +290,7 @@ func (b *R9NanoGPUBuilder) connectL1ToL2() {
 	lowModuleFinder.ModuleForOtherAddresses = b.rdmaEngine.ToL1
 	lowModuleFinder.UseAddressSpaceLimitation = true
 	lowModuleFinder.LowAddress = b.memAddrOffset
-	lowModuleFinder.HighAddress = b.memAddrOffset + 128*mem.MB
+	lowModuleFinder.HighAddress = b.memAddrOffset + 4*mem.GB
 
 	l1ToL2Conn := sim.NewDirectConnection(b.gpuName+".L1toL2",
 		b.engine, b.freq)
@@ -824,7 +824,7 @@ func (b *R9NanoGPUBuilder) connectWithDirectConnection(
 	bufferSize int,
 ) {
 	conn := sim.NewDirectConnection(
-		port1.Name()+"-"+port2.Name(),
+		port1.Name()+"to"+port2.Name(),
 		b.engine, b.freq,
 	)
 	conn.PlugIn(port1, bufferSize)

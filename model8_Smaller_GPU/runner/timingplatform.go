@@ -153,7 +153,7 @@ func (b R9NanoPlatformBuilder) Build() *Platform {
 	b.createVisTracer()
 
 	numGPU := b.tileWidth*b.tileHeight - 1
-	b.globalStorage = mem.NewStorage(uint64(1+numGPU) * 128 * mem.MB)
+	b.globalStorage = mem.NewStorage(uint64(1+numGPU) * 4 * mem.GB)
 
 	mmuComponent, pageTable := b.createMMU(b.engine)
 
@@ -241,7 +241,7 @@ func (b R9NanoPlatformBuilder) createPMCPageTable() *mem.BankedLowModuleFinder {
 
 func (b R9NanoPlatformBuilder) createRDMAAddrTable() *mem.BankedLowModuleFinder {
 	rdmaAddressTable := new(mem.BankedLowModuleFinder)
-	rdmaAddressTable.BankSize = 128 * mem.MB
+	rdmaAddressTable.BankSize = 4 * mem.GB
 	rdmaAddressTable.LowModules = append(rdmaAddressTable.LowModules, nil)
 	return rdmaAddressTable
 }
@@ -381,9 +381,9 @@ func (b *R9NanoPlatformBuilder) createGPU(
 	connector *mesh.Connector,
 ) *GPU {
 	index := uint64(len(b.gpus)) + 1
-	gpuid := x + y*x
+	gpuid := x + y*b.tileWidth
 	name := fmt.Sprintf("GPU[%d]", gpuid)
-	memAddrOffset := index * 128 * mem.MB
+	memAddrOffset := index * 4 * mem.GB
 	gpu := gpuBuilder.
 		WithMemAddrOffset(memAddrOffset).
 		Build(name, uint64(index))

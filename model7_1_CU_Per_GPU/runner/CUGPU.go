@@ -108,7 +108,8 @@ func (b *R9NanoGPUBuilder) buildShader() {
 		withEngine(b.engine).
 		withFreq(b.freq).
 		withGPUID(b.gpuID).
-		withLog2PageSize(b.log2PageSize).withLog2CachelineSize(b.log2CacheLineSize)
+		withLog2PageSize(b.log2PageSize).
+		withLog2CachelineSize(b.log2CacheLineSize)
 
 	name := fmt.Sprintf("%s.Shader", b.gpuName)
 	shader := saBuilder.Build(name)

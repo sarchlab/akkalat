@@ -41,10 +41,10 @@ exps = [
     # # ("model6_48_Small_GPU", "nbody", []),
     # ("model6_48_Small_GPU", "nw", []),
     # ("model6_48_Small_GPU", "pagerank", []),
-    ("model6_48_Small_GPU", "relu", []),
-    ("model6_48_Small_GPU", "simpleconvolution", []),
-    ("model6_48_Small_GPU", "spmv", []),
-    ("model6_48_Small_GPU", "stencil2d", []),
+    # ("model6_48_Small_GPU", "relu", []),
+    # ("model6_48_Small_GPU", "simpleconvolution", []),
+    # ("model6_48_Small_GPU", "spmv", []),
+    # ("model6_48_Small_GPU", "stencil2d", []),
 
 
 
@@ -315,6 +315,26 @@ exps = [
     # ("model4_Mollca_GPU", "simpleconvolution", ['-switch-latency=1']),
     # ("model4_Mollca_GPU", "spmv", ['-switch-latency=1']),
     # ("model4_Mollca_GPU", "stencil2d", ['-switch-latency=1']),
+
+    # ("model7_1_CU_Per_GPU", "aes", []),
+    # ("model7_1_CU_Per_GPU", "atax", []),
+    # ("model7_1_CU_Per_GPU", "im2col", []),
+    # ("model7_1_CU_Per_GPU", "fastwalshtransform", []),
+    # ("model7_1_CU_Per_GPU", "conv2d", []),
+    # ("model7_1_CU_Per_GPU", "spmv", ['-switch-latency=1']),
+    # ("model7_1_CU_Per_GPU", "bicg", ['-switch-latency=1']),
+    # ("model7_1_CU_Per_GPU", "bitonicsort", ['-switch-latency=1']),
+
+    # ("model8_Smaller_GPU", "spvm", []),
+    ("model8_Smaller_GPU", "nbody", []),
+    # ("model6_48_Small_GPU", "stencil2d", []),
+    # ("model6_48_Small_GPU", "fft", []),
+    # ("model6_48_Small_GPU", "pagerank", []),
+    # ("model6_48_Small_GPU", "fastwalshtransform", []),
+    # ("model6_48_Small_GPU", "aes", []),
+    # ("model6_48_Small_GPU", "conv2d", []),
+    # ("model8_Smaller_GPU", "nw", []),
+    
 ]
 
 output_dir = ""

@@ -296,7 +296,7 @@ func (r *Runner) buildTimingPlatform() {
 
 	r.platform = b.Build()
 
-	r.monitor.StartServer(0)
+	r.monitor.StartServer()
 }
 
 func (r *Runner) addMaxInstStopper() {

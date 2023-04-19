@@ -4,7 +4,7 @@ import (
 	"flag"
 
 	"github.com/sarchlab/akkalab/benchmarkselection"
-	"github.com/sarchlab/akkalab/model1/runner"
+	"github.com/sarchlab/akkalab/model8_Smaller_GPU/runner"
 )
 
 var benchmarkFlag = flag.String("benchmark", "fir",

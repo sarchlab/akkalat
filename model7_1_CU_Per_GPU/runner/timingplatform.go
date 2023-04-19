@@ -47,8 +47,8 @@ type R9NanoPlatformBuilder struct {
 // MakeR9NanoBuilder creates a EmuBuilder with default parameters.
 func MakeR9NanoBuilder() R9NanoPlatformBuilder {
 	b := R9NanoPlatformBuilder{
-		tileWidth:         11,
-		tileHeight:        11,
+		tileWidth:         29,
+		tileHeight:        53,
 		log2PageSize:      12,
 		visTraceStartTime: -1,
 		visTraceEndTime:   -1,
@@ -325,7 +325,8 @@ func (b *R9NanoPlatformBuilder) createGPUBuilder(
 		WithLog2MemoryBankInterleavingSize(7).
 		WithLog2PageSize(b.log2PageSize).
 		WithGlobalStorage(b.globalStorage).
-		withLog2CachelineSize(uint64(b.log2CacheLineSize))
+		withLog2CachelineSize(uint64(b.log2CacheLineSize)).
+		WithDRAMSize(128 * mem.MB)
 
 	if b.monitor != nil {
 		gpuBuilder = gpuBuilder.WithMonitor(b.monitor)

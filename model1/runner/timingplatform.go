@@ -144,7 +144,7 @@ func (b R9NanoPlatformBuilder) WithMaxNumHops(
 }
 
 // Build builds a platform with R9Nano GPUs.
-func (b R9NanoPlatformBuilder) Build() *Platform {
+func (b R9NanoPlatformBuilder) Build(numMemoryBank int) *Platform {
 	b.engine = b.createEngine()
 	if b.monitor != nil {
 		b.monitor.RegisterEngine(b.engine)
@@ -180,7 +180,7 @@ func (b R9NanoPlatformBuilder) Build() *Platform {
 
 	connector := b.createConnection(b.engine, gpuDriver, mmuComponent)
 
-	gpuBuilder := b.createGPUBuilder(b.engine, gpuDriver, mmuComponent)
+	gpuBuilder := b.createGPUBuilder(b.engine, gpuDriver, mmuComponent, numMemoryBank)
 
 	mmuComponent.MigrationServiceProvider = gpuDriver.GetPortByName("MMU")
 
@@ -310,13 +310,14 @@ func (b *R9NanoPlatformBuilder) createGPUBuilder(
 	engine sim.Engine,
 	gpuDriver *driver.Driver,
 	mmuComponent *mmu.MMU,
+	numMemoryBank int,
 ) R9NanoGPUBuilder {
 	gpuBuilder := MakeR9NanoGPUBuilder().
 		WithEngine(engine).
 		WithMMU(mmuComponent).
 		WithNumCUPerShaderArray(b.numCUPerSA).
 		WithNumShaderArray(b.numSAPerGPU).
-		WithNumMemoryBank(8).
+		WithNumMemoryBank(numMemoryBank).
 		WithL2CacheSize(2 * mem.MB).
 		WithLog2MemoryBankInterleavingSize(7).
 		WithLog2PageSize(b.log2PageSize).
@@ -381,7 +382,7 @@ func (b *R9NanoPlatformBuilder) createGPU(
 	connector *mesh.Connector,
 ) *GPU {
 	index := uint64(len(b.gpus)) + 1
-	gpuid := x + y*x
+	gpuid := x + y*b.tileWidth
 	name := fmt.Sprintf("GPU[%d]", gpuid)
 	memAddrOffset := index * 4 * mem.GB
 	gpu := gpuBuilder.
