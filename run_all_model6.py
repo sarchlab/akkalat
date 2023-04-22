@@ -4,6 +4,13 @@ from multiprocessing.pool import ThreadPool
 from datetime import datetime
 
 exps = [
+    ("model1", "kmeans", ['-num-memory-banks=4']),
+    ("model1", "matrixmultiplication", ['-num-memory-banks=4']),
+    ("model1", "matrixtranspose", ['-num-memory-banks=4']),
+    # ("model1", "nbody", ['-num-memory-banks=4']),
+    # ("model1", "nw", ['-num-memory-banks=4']),
+    # ("model1", "pagerank", ['-num-memory-banks=4']),
+
     # ("model1", "aes", []),
     # ("model1", "atax", []),
     # ("model1", "bicg", []),
@@ -319,7 +326,7 @@ exps = [
     # ("model7_1_CU_Per_GPU", "aes", ['-switch-latency=1']),
     # ("model7_1_CU_Per_GPU", "atax", ['-switch-latency=1']),
     #  ("model7_1_CU_Per_GPU", "relu", []),
-    ("model7_1_CU_Per_GPU", "bicg", []),
+    # ("model7_1_CU_Per_GPU", "bicg", []),
 ]
 
 output_dir = ""

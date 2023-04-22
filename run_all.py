@@ -4,6 +4,30 @@ from multiprocessing.pool import ThreadPool
 from datetime import datetime
 
 exps = [
+    ("model1", "aes", ['-num-memory-banks=16']),
+    ("model1", "atax", ['-num-memory-banks=16']),
+    ("model1", "bicg", ['-num-memory-banks=16']),
+    ("model1", "bitonicsort", ['-num-memory-banks=16']),
+    ("model1", "conv2d", ['-num-memory-banks=16']),
+    ("model1", "fastwalshtransform", ['-num-memory-banks=16']),
+    ("model1", "fir", ['-num-memory-banks=16']),
+    ("model1", "fft", ['-num-memory-banks=16']),
+    ("model1", "floydwarshall", ['-num-memory-banks=16']),
+    ("model1", "im2col", ['-num-memory-banks=16']),
+    ("model1", "kmeans", ['-num-memory-banks=16']),
+    ("model1", "matrixmultiplication", ['-num-memory-banks=16']),
+    ("model1", "matrixtranspose", ['-num-memory-banks=16']),
+    ("model1", "nbody", ['-num-memory-banks=16']),
+    ("model1", "nw", ['-num-memory-banks=16']),
+    ("model1", "pagerank", ['-num-memory-banks=16']),
+    ("model1", "relu", ['-num-memory-banks=16']),
+    ("model1", "simpleconvolution", ['-num-memory-banks=16']),
+    ("model1", "spmv", ['-num-memory-banks=16']),
+    ("model1", "stencil2d", ['-num-memory-banks=16']),
+    ("model1", "nbody", ['-num-memory-banks=16']),
+    ("model1", "nw", ['-num-memory-banks=16']),
+    ("model1", "pagerank", ['-num-memory-banks=16'])
+
     # ("model1", "aes", []),
     # ("model1", "atax", []),
     # ("model1", "bicg", []),
@@ -326,7 +350,7 @@ exps = [
     # ("model7_1_CU_Per_GPU", "bitonicsort", ['-switch-latency=1']),
 
     # ("model8_Smaller_GPU", "spvm", []),
-    ("model8_Smaller_GPU", "nbody", []),
+    # ("model8_Smaller_GPU", "nbody", []),
     # ("model6_48_Small_GPU", "stencil2d", []),
     # ("model6_48_Small_GPU", "fft", []),
     # ("model6_48_Small_GPU", "pagerank", []),
