@@ -42,14 +42,14 @@ type R9NanoGPUBuilder struct {
 	gpu                     *GPU
 	gpuID                   uint64
 	cp                      *cp.CommandProcessor
-	cu                      *cu.ComputeUnit
-	l1vReorderBuffer        *rob2.ReorderBuffer
+	cus                     []*cu.ComputeUnit
+	l1vReorderBuffers       []*rob2.ReorderBuffer
 	l1iReorderBuffer        *rob2.ReorderBuffer
 	l1sReorderBuffer        *rob2.ReorderBuffer
-	l1vAddrTran             *addresstranslator.AddressTranslator
+	l1vAddrTrans            []*addresstranslator.AddressTranslator
 	l1sAddrTran             *addresstranslator.AddressTranslator
 	l1iAddrTran             *addresstranslator.AddressTranslator
-	l1vTLB                  *tlb.TLB
+	l1vTLBs                 []*tlb.TLB
 	l1sTLB                  *tlb.TLB
 	l1iTLB                  *tlb.TLB
 	l2TLBs                  []*tlb.TLB
@@ -135,35 +135,44 @@ func (b *R9NanoGPUBuilder) buildShader() {
 }
 
 func (b *R9NanoGPUBuilder) populateCU(s *shader) {
-	b.cu = s.computeUnit
-	b.gpu.CU = s.computeUnit
+	for _, cu := range s.computeUnits {
+		b.cus = append(b.cus, cu)
+		b.gpu.CUs = append(b.gpu.CUs, cu)
 
-	if b.monitor != nil {
-		b.monitor.RegisterComponent(s.computeUnit)
+		if b.monitor != nil {
+			b.monitor.RegisterComponent(cu)
+		}
 	}
 }
 
 func (b *R9NanoGPUBuilder) populateROB(s *shader) {
-	b.l1vReorderBuffer = s.vectorRoB
 
-	if b.monitor != nil {
-		b.monitor.RegisterComponent(s.vectorRoB)
+	for _, l1vRoB := range s.vectorRoBs {
+		b.l1vReorderBuffers = append(b.l1vReorderBuffers, l1vRoB)
+
+		if b.monitor != nil {
+			b.monitor.RegisterComponent(l1vRoB)
+		}
 	}
 }
 
 func (b *R9NanoGPUBuilder) populateTLB(s *shader) {
-	b.l1vTLB = s.vectorTLB
+	for _, l1vTLB := range s.vectorTLBs {
+		b.l1vTLBs = append(b.l1vTLBs, l1vTLB)
 
-	if b.monitor != nil {
-		b.monitor.RegisterComponent(s.vectorTLB)
+		if b.monitor != nil {
+			b.monitor.RegisterComponent(l1vTLB)
+		}
 	}
 }
 
 func (b *R9NanoGPUBuilder) populateL1VAddressTranslator(s *shader) {
-	b.l1vAddrTran = s.vectorAddressTranslator
+	for _, l1vAddrTran := range s.vectorAddressTranslators {
+		b.l1vAddrTrans = append(b.l1vAddrTrans, l1vAddrTran)
 
-	if b.monitor != nil {
-		b.monitor.RegisterComponent(s.vectorAddressTranslator)
+		if b.monitor != nil {
+			b.monitor.RegisterComponent(l1vAddrTran)
+		}
 	}
 }
 
@@ -345,17 +354,20 @@ func (b *R9NanoGPUBuilder) connectCP() {
 }
 
 func (b *R9NanoGPUBuilder) connectCPWithCUs() {
-	b.cp.RegisterCU(b.cu)
-	b.internalConn.PlugIn(b.cu.ToACE, 1)
-	b.internalConn.PlugIn(b.cu.ToCP, 1)
+	for _, cu := range b.cus {
+		b.cp.RegisterCU(cu)
+		b.internalConn.PlugIn(cu.ToACE, 1)
+		b.internalConn.PlugIn(cu.ToCP, 1)
+	}
 }
 
 func (b *R9NanoGPUBuilder) connectCPWithAddressTranslators() {
 
-	vat := b.l1vAddrTran
-	vATCtrlPort := vat.GetPortByName("Control")
-	b.cp.AddressTranslators = append(b.cp.AddressTranslators, vATCtrlPort)
-	b.internalConn.PlugIn(vATCtrlPort, 1)
+	for _, vat := range b.l1vAddrTrans {
+		vATCtrlPort := vat.GetPortByName("Control")
+		b.cp.AddressTranslators = append(b.cp.AddressTranslators, vATCtrlPort)
+		b.internalConn.PlugIn(vATCtrlPort, 1)
+	}
 
 	sat := b.l1sAddrTran
 	sATCtrlPort := sat.GetPortByName("Control")
@@ -367,11 +379,12 @@ func (b *R9NanoGPUBuilder) connectCPWithAddressTranslators() {
 	b.cp.AddressTranslators = append(b.cp.AddressTranslators, iATCtrlPort)
 	b.internalConn.PlugIn(iATCtrlPort, 1)
 
-	vROB := b.l1vReorderBuffer
-	vROBctrlPort := vROB.GetPortByName("Control")
-	b.cp.AddressTranslators = append(
-		b.cp.AddressTranslators, vROBctrlPort)
-	b.internalConn.PlugIn(vROBctrlPort, 1)
+	for _, vROB := range b.l1vReorderBuffers {
+		vROBctrlPort := vROB.GetPortByName("Control")
+		b.cp.AddressTranslators = append(
+			b.cp.AddressTranslators, vROBctrlPort)
+		b.internalConn.PlugIn(vROBctrlPort, 1)
+	}
 
 	iROB := b.l1iReorderBuffer
 	iROBctrlPort := iROB.GetPortByName("Control")
@@ -379,7 +392,7 @@ func (b *R9NanoGPUBuilder) connectCPWithAddressTranslators() {
 		b.cp.AddressTranslators, iROBctrlPort)
 	b.internalConn.PlugIn(iROBctrlPort, 1)
 
-	sROB := b.l1vReorderBuffer
+	sROB := b.l1sReorderBuffer
 	sROBctrlPort := sROB.GetPortByName("Control")
 	b.cp.AddressTranslators = append(
 		b.cp.AddressTranslators, sROBctrlPort)
@@ -393,10 +406,11 @@ func (b *R9NanoGPUBuilder) connectCPWithTLBs() {
 		b.internalConn.PlugIn(ctrlPort, 1)
 	}
 
-	vtlb := b.l1vTLB
-	vCtrlPort := vtlb.GetPortByName("Control")
-	b.cp.TLBs = append(b.cp.TLBs, vCtrlPort)
-	b.internalConn.PlugIn(vCtrlPort, 1)
+	for _, vtlb := range b.l1vTLBs {
+		vCtrlPort := vtlb.GetPortByName("Control")
+		b.cp.TLBs = append(b.cp.TLBs, vCtrlPort)
+		b.internalConn.PlugIn(vCtrlPort, 1)
+	}
 
 	stlb := b.l1sTLB
 	sCtrlPort := stlb.GetPortByName("Control")
@@ -428,9 +442,10 @@ func (b *R9NanoGPUBuilder) connectL1TLBToL2TLB() {
 
 	tlbConn.PlugIn(b.l2TLBs[0].GetPortByName("Top"), 64)
 
-	l1vTLB := b.l1vTLB
-	l1vTLB.LowModule = b.l2TLBs[0].GetPortByName("Top")
-	tlbConn.PlugIn(l1vTLB.GetPortByName("Bottom"), 16)
+	for _, l1vTLB := range b.l1vTLBs {
+		l1vTLB.LowModule = b.l2TLBs[0].GetPortByName("Top")
+		tlbConn.PlugIn(l1vTLB.GetPortByName("Bottom"), 16)
+	}
 
 	l1iTLB := b.l1iTLB
 	l1iTLB.LowModule = b.l2TLBs[0].GetPortByName("Top")
@@ -443,7 +458,7 @@ func (b *R9NanoGPUBuilder) connectL1TLBToL2TLB() {
 
 func (b *R9NanoGPUBuilder) connectATToDRAM() {
 	iAT := b.l1iAddrTran
-	vAT := b.l1vAddrTran
+
 	sAT := b.l1sAddrTran
 
 	lowModuleFinder := mem.NewInterleavedLowModuleFinder(
@@ -459,12 +474,15 @@ func (b *R9NanoGPUBuilder) connectATToDRAM() {
 	b.atToDramConnection.PlugIn(b.rdmaEngine.ToL2, 64)
 
 	iAT.SetLowModuleFinder(lowModuleFinder)
-	vAT.SetLowModuleFinder(lowModuleFinder)
 	sAT.SetLowModuleFinder(lowModuleFinder)
 
 	b.atToDramConnection.PlugIn(iAT.GetPortByName("Bottom"), 16)
-	b.atToDramConnection.PlugIn(vAT.GetPortByName("Bottom"), 16)
 	b.atToDramConnection.PlugIn(sAT.GetPortByName("Bottom"), 16)
+
+	for _, vAT := range b.l1vAddrTrans {
+		vAT.SetLowModuleFinder(lowModuleFinder)
+		b.atToDramConnection.PlugIn(vAT.GetPortByName("Bottom"), 16)
+	}
 
 	for _, dram := range b.drams {
 		b.atToDramConnection.PlugIn(dram.GetPortByName("Top"), 64)

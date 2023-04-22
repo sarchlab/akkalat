@@ -15,17 +15,17 @@ import (
 )
 
 type shader struct {
-	computeUnit *cu.ComputeUnit
+	computeUnits []*cu.ComputeUnit
 
-	vectorAddressTranslator      *addresstranslator.AddressTranslator
+	vectorAddressTranslators     []*addresstranslator.AddressTranslator
 	scalarAddressTranslator      *addresstranslator.AddressTranslator
 	instructionAddressTranslator *addresstranslator.AddressTranslator
 
-	vectorRoB      *rob.ReorderBuffer
+	vectorRoBs     []*rob.ReorderBuffer
 	instructionRoB *rob.ReorderBuffer
 	scalarRoB      *rob.ReorderBuffer
 
-	vectorTLB      *tlb.TLB
+	vectorTLBs     []*tlb.TLB
 	scalarTLB      *tlb.TLB
 	instructionTLB *tlb.TLB
 
@@ -35,6 +35,8 @@ type shader struct {
 type shaderBuilder struct {
 	gpuID uint64
 	name  string
+
+	numOfCU int
 
 	engine            sim.Engine
 	freq              sim.Freq
@@ -53,6 +55,7 @@ func makeShaderBuilder() shaderBuilder {
 	builder := shaderBuilder{
 		gpuID:             0,
 		name:              "Shader",
+		numOfCU:           16,
 		freq:              1 * sim.GHz,
 		log2CacheLineSize: 6,
 		log2PageSize:      12,
@@ -116,12 +119,14 @@ func (b *shaderBuilder) buildvTLB(s *shader) {
 		WithNumWays(64).
 		WithNumReqPerCycle(4)
 
-	name := fmt.Sprintf("%s.V1ITLB", b.name)
-	tlb := builder.Build(name)
-	s.vectorTLB = tlb
+	for i := 0; i < b.numOfCU; i++ {
+		name := fmt.Sprintf("%s.V1ITLB[%v]", b.name, i)
+		tlb := builder.Build(name)
+		s.vectorTLBs = append(s.vectorTLBs, tlb)
 
-	if b.visTracer != nil {
-		tracing.CollectTrace(tlb, b.visTracer)
+		if b.visTracer != nil {
+			tracing.CollectTrace(tlb, b.visTracer)
+		}
 	}
 }
 
@@ -147,26 +152,28 @@ func (b *shaderBuilder) buildCU(s *shader) {
 	cuBuilder := cu.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
-		WithLog2CachelineSize(0)
+		WithLog2CachelineSize(6)
 
-	cuName := fmt.Sprintf("%s.CU", b.name)
-	computeUnit := cuBuilder.Build(cuName)
-	s.computeUnit = computeUnit
+	for i := 0; i < b.numOfCU; i++ {
+		cuName := fmt.Sprintf("%s.CU[%v]", b.name, i)
+		computeUnit := cuBuilder.Build(cuName)
+		s.computeUnits = append(s.computeUnits, computeUnit)
 
-	if b.isaDebugging {
-		isaDebug, err := os.Create(
-			fmt.Sprintf("isa[%s].debug", cuName))
-		if err != nil {
-			log.Fatal(err.Error())
+		if b.isaDebugging {
+			isaDebug, err := os.Create(
+				fmt.Sprintf("isa[%s].debug", cuName))
+			if err != nil {
+				log.Fatal(err.Error())
+			}
+			isaDebugger := cu.NewISADebugger(
+				log.New(isaDebug, "", 0), computeUnit)
+
+			tracing.CollectTrace(computeUnit, isaDebugger)
 		}
-		isaDebugger := cu.NewISADebugger(
-			log.New(isaDebug, "", 0), computeUnit)
 
-		tracing.CollectTrace(computeUnit, isaDebugger)
-	}
-
-	if b.visTracer != nil {
-		tracing.CollectTrace(computeUnit, b.visTracer)
+		if b.visTracer != nil {
+			tracing.CollectTrace(computeUnit, b.visTracer)
+		}
 	}
 }
 
@@ -177,12 +184,14 @@ func (b *shaderBuilder) buildVectorAddressTranslator(s *shader) {
 		WithDeviceID(b.gpuID).
 		WithLog2PageSize(b.log2PageSize)
 
-	name := fmt.Sprintf("%s.VAddrTrans", b.name)
-	at := builder.Build(name)
-	s.vectorAddressTranslator = at
+	for i := 0; i < b.numOfCU; i++ {
+		name := fmt.Sprintf("%s.VAddrTrans[%v]", b.name, i)
+		at := builder.Build(name)
+		s.vectorAddressTranslators = append(s.vectorAddressTranslators, at)
 
-	if b.visTracer != nil {
-		tracing.CollectTrace(at, b.visTracer)
+		if b.visTracer != nil {
+			tracing.CollectTrace(at, b.visTracer)
+		}
 	}
 }
 
@@ -225,12 +234,14 @@ func (b *shaderBuilder) buildVectorReorderBuffer(s *shader) {
 		WithBufferSize(128).
 		WithNumReqPerCycle(4)
 
-	name := fmt.Sprintf("%s.VROB", b.name)
-	rob := builder.Build(name)
-	s.vectorRoB = rob
+	for i := 0; i < b.numOfCU; i++ {
+		name := fmt.Sprintf("%s.VROB", b.name)
+		rob := builder.Build(name)
+		s.vectorRoBs = append(s.vectorRoBs, rob)
 
-	if b.visTracer != nil {
-		tracing.CollectTrace(rob, b.visTracer)
+		if b.visTracer != nil {
+			tracing.CollectTrace(rob, b.visTracer)
+		}
 	}
 }
 
@@ -286,62 +297,71 @@ func (b *shaderBuilder) connectWithDirectConnection(
 }
 
 func (b *shaderBuilder) connectVectorMem(s *shader) {
-	cu := s.computeUnit
-	rob := s.vectorRoB
-	at := s.vectorAddressTranslator
-	tlb := s.vectorTLB
+	for i := 0; i < b.numOfCU; i++ {
+		cu := s.computeUnits[i]
+		rob := s.vectorRoBs[i]
+		at := s.vectorAddressTranslators[i]
+		tlb := s.vectorTLBs[i]
 
-	cu.VectorMemModules = &mem.SingleLowModuleFinder{
-		LowModule: rob.GetPortByName("Top"),
+		cu.VectorMemModules = &mem.SingleLowModuleFinder{
+			LowModule: rob.GetPortByName("Top"),
+		}
+		b.connectWithDirectConnection(cu.ToVectorMem, rob.GetPortByName("Top"), 8)
+
+		atTopPort := at.GetPortByName("Top")
+		rob.BottomUnit = atTopPort
+		b.connectWithDirectConnection(rob.GetPortByName("Bottom"), atTopPort, 8)
+
+		tlbTopPort := tlb.GetPortByName("Top")
+		at.SetTranslationProvider(tlbTopPort)
+		b.connectWithDirectConnection(
+			at.GetPortByName("Translation"), tlbTopPort, 8)
 	}
-	b.connectWithDirectConnection(cu.ToVectorMem, rob.GetPortByName("Top"), 8)
 
-	atTopPort := at.GetPortByName("Top")
-	rob.BottomUnit = atTopPort
-	b.connectWithDirectConnection(rob.GetPortByName("Bottom"), atTopPort, 8)
-
-	tlbTopPort := tlb.GetPortByName("Top")
-	at.SetTranslationProvider(tlbTopPort)
-	b.connectWithDirectConnection(
-		at.GetPortByName("Translation"), tlbTopPort, 8)
 }
 
 func (b *shaderBuilder) connectScalarMem(s *shader) {
-	cu := s.computeUnit
 	rob := s.scalarRoB
 	at := s.scalarAddressTranslator
 	tlb := s.scalarTLB
 
-	cu.ScalarMem = rob.GetPortByName("Top")
-	b.connectWithDirectConnection(rob.GetPortByName("Top"), cu.ToScalarMem, 8)
+	for i := 0; i < b.numOfCU; i++ {
+		cu := s.computeUnits[i]
 
-	atTopPort := at.GetPortByName("Top")
-	rob.BottomUnit = atTopPort
-	b.connectWithDirectConnection(rob.GetPortByName("Bottom"), atTopPort, 8)
+		cu.ScalarMem = rob.GetPortByName("Top")
+		b.connectWithDirectConnection(rob.GetPortByName("Top"), cu.ToScalarMem, 8)
 
-	tlbTopPort := tlb.GetPortByName("Top")
-	at.SetTranslationProvider(tlbTopPort)
-	b.connectWithDirectConnection(
-		at.GetPortByName("Translation"), tlbTopPort, 8)
+		atTopPort := at.GetPortByName("Top")
+		rob.BottomUnit = atTopPort
+		b.connectWithDirectConnection(rob.GetPortByName("Bottom"), atTopPort, 8)
+
+		tlbTopPort := tlb.GetPortByName("Top")
+		at.SetTranslationProvider(tlbTopPort)
+		b.connectWithDirectConnection(
+			at.GetPortByName("Translation"), tlbTopPort, 8)
+	}
+
 }
 
 func (b *shaderBuilder) connectInstMem(s *shader) {
-	cu := s.computeUnit
 	rob := s.instructionRoB
 	at := s.instructionAddressTranslator
 	tlb := s.instructionTLB
 
-	cu.InstMem = rob.GetPortByName("Top")
-	b.connectWithDirectConnection(rob.GetPortByName("Top"), cu.ToInstMem, 8)
+	for i := 0; i < b.numOfCU; i++ {
+		cu := s.computeUnits[i]
+		cu.InstMem = rob.GetPortByName("Top")
+		b.connectWithDirectConnection(rob.GetPortByName("Top"), cu.ToInstMem, 8)
 
-	atTopPort := at.GetPortByName("Top")
-	rob.BottomUnit = atTopPort
-	b.connectWithDirectConnection(rob.GetPortByName("Bottom"), atTopPort, 8)
+		atTopPort := at.GetPortByName("Top")
+		rob.BottomUnit = atTopPort
+		b.connectWithDirectConnection(rob.GetPortByName("Bottom"), atTopPort, 8)
 
-	tlbTopPort := tlb.GetPortByName("Top")
-	at.SetTranslationProvider(tlbTopPort)
-	b.connectWithDirectConnection(
-		at.GetPortByName("Translation"), tlbTopPort, 8)
+		tlbTopPort := tlb.GetPortByName("Top")
+		at.SetTranslationProvider(tlbTopPort)
+		b.connectWithDirectConnection(
+			at.GetPortByName("Translation"), tlbTopPort, 8)
+	}
 }
 
 // func (b *shaderBuilder) buildMem(s *shader) {
@@ -388,6 +408,11 @@ func (b shaderBuilder) withMemTracer(memTracer tracing.Tracer) shaderBuilder {
 
 func (b shaderBuilder) withLog2CachelineSize(log2Size uint64) shaderBuilder {
 	b.log2CacheLineSize = log2Size
+	return b
+}
+
+func (b shaderBuilder) withNumOfCU(number int) shaderBuilder {
+	b.numOfCU = number
 	return b
 }
 

@@ -28,7 +28,7 @@ type GPU struct {
 	CommandProcessor *cp.CommandProcessor
 	RDMAEngine       *rdma.Engine
 	PMC              *pagemigrationcontroller.PageMigrationController
-	CU               TraceableComponent
+	CUs              []TraceableComponent
 	L1VTLB           TraceableComponent
 	L1STLB           TraceableComponent
 	L1ITLB           TraceableComponent

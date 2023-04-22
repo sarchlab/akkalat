@@ -3,8 +3,8 @@ package main
 import (
 	"flag"
 
+	"github.com/sarchlab/akkalab/32CUPerGPU_withCache/runner"
 	"github.com/sarchlab/akkalab/benchmarkselection"
-	"github.com/sarchlab/akkalab/model6_48_Small_GPU/runner"
 )
 
 var benchmarkFlag = flag.String("benchmark", "fir",

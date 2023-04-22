@@ -64,6 +64,8 @@ var bandwidthFlag = flag.Int("bandwidth", 1,
 	"The bandwidth of the network as a multiple of 16GB/s.")
 var maxNumHopsFlag = flag.Int("max-num-hops", -1,
 	"The maximum number of hops in the network")
+var cuPerGPUFlag = flag.Int("cu-per-gpu", 4,
+	"The cu count per GPU")
 
 type verificationPreEnablingBenchmark interface {
 	benchmarks.Benchmark
@@ -303,7 +305,9 @@ func (r *Runner) addMaxInstStopper() {
 
 	r.maxInstStopper = newInstStopper(*maxInstCount)
 	for _, gpu := range r.platform.GPUs {
-		tracing.CollectTrace(gpu.CU.(tracing.NamedHookable), r.maxInstStopper)
+		for _, cu := range gpu.CUs {
+			tracing.CollectTrace(cu.(tracing.NamedHookable), r.maxInstStopper)
+		}
 	}
 }
 
@@ -333,15 +337,15 @@ func (r *Runner) addInstCountTracer() {
 	}
 
 	for _, gpu := range r.platform.GPUs {
-		// for _, cu := range gpu.CUs {
-		tracer := newInstTracer()
-		r.instCountTracers = append(r.instCountTracers,
-			instCountTracer{
-				tracer: tracer,
-				cu:     gpu.CU,
-			})
-		tracing.CollectTrace(gpu.CU.(tracing.NamedHookable), tracer)
-		// }
+		for _, cu := range gpu.CUs {
+			tracer := newInstTracer()
+			r.instCountTracers = append(r.instCountTracers,
+				instCountTracer{
+					tracer: tracer,
+					cu:     cu,
+				})
+			tracing.CollectTrace(cu.(tracing.NamedHookable), tracer)
+		}
 	}
 }
 
