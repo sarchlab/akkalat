@@ -23,5 +23,7 @@
 
 results
 *.log
+__pycache
 __debug_bin
+run_all
 
