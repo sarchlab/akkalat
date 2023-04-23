@@ -325,20 +325,22 @@ func (b *shaderBuilder) connectScalarMem(s *shader) {
 	at := s.scalarAddressTranslator
 	tlb := s.scalarTLB
 
+	atTopPort := at.GetPortByName("Top")
+	rob.BottomUnit = atTopPort
+	b.connectWithDirectConnection(rob.GetPortByName("Bottom"), atTopPort, 8)
+
+	tlbTopPort := tlb.GetPortByName("Top")
+	at.SetTranslationProvider(tlbTopPort)
+	b.connectWithDirectConnection(
+		at.GetPortByName("Translation"), tlbTopPort, 8)
+
+	robTopPort := rob.GetPortByName("Top")
+	conn := sim.NewDirectConnection(b.name, b.engine, b.freq)
+	conn.PlugIn(robTopPort, 8)
 	for i := 0; i < b.numOfCU; i++ {
 		cu := s.computeUnits[i]
-
 		cu.ScalarMem = rob.GetPortByName("Top")
-		b.connectWithDirectConnection(rob.GetPortByName("Top"), cu.ToScalarMem, 8)
-
-		atTopPort := at.GetPortByName("Top")
-		rob.BottomUnit = atTopPort
-		b.connectWithDirectConnection(rob.GetPortByName("Bottom"), atTopPort, 8)
-
-		tlbTopPort := tlb.GetPortByName("Top")
-		at.SetTranslationProvider(tlbTopPort)
-		b.connectWithDirectConnection(
-			at.GetPortByName("Translation"), tlbTopPort, 8)
+		conn.PlugIn(cu.ToScalarMem, 8)
 	}
 
 }
@@ -348,19 +350,21 @@ func (b *shaderBuilder) connectInstMem(s *shader) {
 	at := s.instructionAddressTranslator
 	tlb := s.instructionTLB
 
+	atTopPort := at.GetPortByName("Top")
+	rob.BottomUnit = atTopPort
+	b.connectWithDirectConnection(rob.GetPortByName("Bottom"), atTopPort, 8)
+
+	tlbTopPort := tlb.GetPortByName("Top")
+	at.SetTranslationProvider(tlbTopPort)
+	b.connectWithDirectConnection(at.GetPortByName("Translation"), tlbTopPort, 8)
+
+	robTopPort := rob.GetPortByName("Top")
+	conn := sim.NewDirectConnection(b.name, b.engine, b.freq)
+	conn.PlugIn(robTopPort, 8)
 	for i := 0; i < b.numOfCU; i++ {
 		cu := s.computeUnits[i]
 		cu.InstMem = rob.GetPortByName("Top")
-		b.connectWithDirectConnection(rob.GetPortByName("Top"), cu.ToInstMem, 8)
-
-		atTopPort := at.GetPortByName("Top")
-		rob.BottomUnit = atTopPort
-		b.connectWithDirectConnection(rob.GetPortByName("Bottom"), atTopPort, 8)
-
-		tlbTopPort := tlb.GetPortByName("Top")
-		at.SetTranslationProvider(tlbTopPort)
-		b.connectWithDirectConnection(
-			at.GetPortByName("Translation"), tlbTopPort, 8)
+		conn.PlugIn(cu.ToInstMem, 8)
 	}
 }
 

@@ -47,8 +47,8 @@ type R9NanoPlatformBuilder struct {
 // MakeR9NanoBuilder creates a EmuBuilder with default parameters.
 func MakeR9NanoBuilder() R9NanoPlatformBuilder {
 	b := R9NanoPlatformBuilder{
-		tileWidth:         29,
-		tileHeight:        53,
+		tileWidth:         10,
+		tileHeight:        10,
 		log2PageSize:      12,
 		visTraceStartTime: -1,
 		visTraceEndTime:   -1,
