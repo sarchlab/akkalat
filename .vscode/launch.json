@@ -17,7 +17,7 @@
 			"type": "go",
 			"request": "launch",
 			"mode": "auto",
-			"program": "${workspaceFolder}/16CUPerGPU_withoutCache",
+			"program": "/home/daoxuan/daoxuan_wafer_scale/src/akkalat/16CUPerGPU_withoutCache",
 			"args": [
 				"-timing",
 				"-magic-memory-copy",
