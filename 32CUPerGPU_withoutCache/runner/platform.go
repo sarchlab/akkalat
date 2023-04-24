@@ -29,9 +29,9 @@ type GPU struct {
 	RDMAEngine       *rdma.Engine
 	PMC              *pagemigrationcontroller.PageMigrationController
 	CUs              []TraceableComponent
-	L1VTLB           TraceableComponent
-	L1STLB           TraceableComponent
-	L1ITLB           TraceableComponent
+	L1vTLBs          []TraceableComponent
+	L1STLBs          []TraceableComponent
+	L1ITLBs          []TraceableComponent
 	L2TLBs           []TraceableComponent
 	MemControllers   []TraceableComponent
 }

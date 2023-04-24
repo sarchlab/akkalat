@@ -13,11 +13,11 @@
 			"justMyCode": true
 		},
 		{
-			"name": "FIR-16CUPerGPU_withoutCache",
+			"name": "FIR-64CUPerGPU_withoutCache",
 			"type": "go",
 			"request": "launch",
 			"mode": "auto",
-			"program": "/home/daoxuan/daoxuan_wafer_scale/src/akkalat/16CUPerGPU_withoutCache",
+			"program": "/home/daoxuan/daoxuan_wafer_scale/src/akkalat/64CUPerGPU_withoutCache",
 			"args": [
 				"-timing",
 				"-magic-memory-copy",

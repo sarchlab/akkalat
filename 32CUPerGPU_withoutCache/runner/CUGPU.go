@@ -44,14 +44,14 @@ type R9NanoGPUBuilder struct {
 	cp                      *cp.CommandProcessor
 	cus                     []*cu.ComputeUnit
 	l1vReorderBuffers       []*rob2.ReorderBuffer
-	l1iReorderBuffer        *rob2.ReorderBuffer
-	l1sReorderBuffer        *rob2.ReorderBuffer
+	l1iReorderBuffers       []*rob2.ReorderBuffer
+	l1sReorderBuffers       []*rob2.ReorderBuffer
 	l1vAddrTrans            []*addresstranslator.AddressTranslator
-	l1sAddrTran             *addresstranslator.AddressTranslator
-	l1iAddrTran             *addresstranslator.AddressTranslator
+	l1sAddrTrans            []*addresstranslator.AddressTranslator
+	l1iAddrTrans            []*addresstranslator.AddressTranslator
 	l1vTLBs                 []*tlb.TLB
-	l1sTLB                  *tlb.TLB
-	l1iTLB                  *tlb.TLB
+	l1sTLBs                 []*tlb.TLB
+	l1iTLBs                 []*tlb.TLB
 	l2TLBs                  []*tlb.TLB
 	drams                   []*idealmemcontroller.Comp
 	lowModuleFinderForL1    *mem.InterleavedLowModuleFinder
@@ -69,7 +69,7 @@ type R9NanoGPUBuilder struct {
 func MakeR9NanoGPUBuilder() R9NanoGPUBuilder {
 	b := R9NanoGPUBuilder{
 		freq:                           1 * sim.GHz,
-		numShader:                      1,
+		numShader:                      8,
 		numMemoryBank:                  16,
 		log2PageSize:                   12,
 		log2MemoryBankInterleavingSize: 12,
@@ -111,15 +111,18 @@ func (b *R9NanoGPUBuilder) buildShader() {
 		withLog2PageSize(b.log2PageSize).
 		withLog2CachelineSize(b.log2CacheLineSize)
 
-	name := fmt.Sprintf("%s.Shader", b.gpuName)
-	shader := saBuilder.Build(name)
+	for i := 0; i < b.numShader; i++ {
+		name := fmt.Sprintf("%s.Shader[%v]", b.gpuName, i)
+		shader := saBuilder.Build(name)
 
-	b.populateCU(&shader)
-	b.populateROB(&shader)
-	b.populateTLB(&shader)
-	b.populateL1VAddressTranslator(&shader)
-	b.populateScalerMemoryHierarchy(&shader)
-	b.populateInstMemoryHierarchy(&shader)
+		b.populateCUs(&shader)
+		b.populateROBs(&shader)
+		b.populateTLBs(&shader)
+		b.populateL1VAddressTranslators(&shader)
+		b.populateScalerMemoryHierarchys(&shader)
+		b.populateInstMemoryHierarchys(&shader)
+
+	}
 
 	if b.enableISADebugging {
 		saBuilder = saBuilder.withIsaDebugging()
@@ -134,7 +137,7 @@ func (b *R9NanoGPUBuilder) buildShader() {
 	}
 }
 
-func (b *R9NanoGPUBuilder) populateCU(s *shader) {
+func (b *R9NanoGPUBuilder) populateCUs(s *shader) {
 	for _, cu := range s.computeUnits {
 		b.cus = append(b.cus, cu)
 		b.gpu.CUs = append(b.gpu.CUs, cu)
@@ -145,8 +148,7 @@ func (b *R9NanoGPUBuilder) populateCU(s *shader) {
 	}
 }
 
-func (b *R9NanoGPUBuilder) populateROB(s *shader) {
-
+func (b *R9NanoGPUBuilder) populateROBs(s *shader) {
 	for _, l1vRoB := range s.vectorRoBs {
 		b.l1vReorderBuffers = append(b.l1vReorderBuffers, l1vRoB)
 
@@ -156,9 +158,10 @@ func (b *R9NanoGPUBuilder) populateROB(s *shader) {
 	}
 }
 
-func (b *R9NanoGPUBuilder) populateTLB(s *shader) {
+func (b *R9NanoGPUBuilder) populateTLBs(s *shader) {
 	for _, l1vTLB := range s.vectorTLBs {
 		b.l1vTLBs = append(b.l1vTLBs, l1vTLB)
+		b.gpu.L1vTLBs = append(b.gpu.L1vTLBs, l1vTLB)
 
 		if b.monitor != nil {
 			b.monitor.RegisterComponent(l1vTLB)
@@ -166,7 +169,7 @@ func (b *R9NanoGPUBuilder) populateTLB(s *shader) {
 	}
 }
 
-func (b *R9NanoGPUBuilder) populateL1VAddressTranslator(s *shader) {
+func (b *R9NanoGPUBuilder) populateL1VAddressTranslators(s *shader) {
 	for _, l1vAddrTran := range s.vectorAddressTranslators {
 		b.l1vAddrTrans = append(b.l1vAddrTrans, l1vAddrTran)
 
@@ -176,11 +179,11 @@ func (b *R9NanoGPUBuilder) populateL1VAddressTranslator(s *shader) {
 	}
 }
 
-func (b *R9NanoGPUBuilder) populateScalerMemoryHierarchy(s *shader) {
-	b.l1sAddrTran = s.scalarAddressTranslator
-	b.l1sReorderBuffer = s.scalarRoB
-	b.l1sTLB = s.scalarTLB
-	b.gpu.L1STLB = s.scalarTLB
+func (b *R9NanoGPUBuilder) populateScalerMemoryHierarchys(s *shader) {
+	b.l1sAddrTrans = append(b.l1sAddrTrans, s.scalarAddressTranslator)
+	b.l1sReorderBuffers = append(b.l1sReorderBuffers, s.scalarRoB)
+	b.l1sTLBs = append(b.l1sTLBs, s.scalarTLB)
+	b.gpu.L1STLBs = append(b.gpu.L1STLBs, s.scalarTLB)
 
 	if b.monitor != nil {
 		b.monitor.RegisterComponent(s.scalarAddressTranslator)
@@ -189,11 +192,11 @@ func (b *R9NanoGPUBuilder) populateScalerMemoryHierarchy(s *shader) {
 	}
 }
 
-func (b *R9NanoGPUBuilder) populateInstMemoryHierarchy(s *shader) {
-	b.l1iAddrTran = s.instructionAddressTranslator
-	b.l1iReorderBuffer = s.instructionRoB
-	b.l1iTLB = s.instructionTLB
-	b.gpu.L1ITLB = s.instructionTLB
+func (b *R9NanoGPUBuilder) populateInstMemoryHierarchys(s *shader) {
+	b.l1iAddrTrans = append(b.l1iAddrTrans, s.instructionAddressTranslator)
+	b.l1iReorderBuffers = append(b.l1iReorderBuffers, s.instructionRoB)
+	b.l1iTLBs = append(b.l1iTLBs, s.instructionTLB)
+	b.gpu.L1ITLBs = append(b.gpu.L1ITLBs, s.instructionTLB)
 
 	if b.monitor != nil {
 		b.monitor.RegisterComponent(s.instructionAddressTranslator)
@@ -369,15 +372,17 @@ func (b *R9NanoGPUBuilder) connectCPWithAddressTranslators() {
 		b.internalConn.PlugIn(vATCtrlPort, 1)
 	}
 
-	sat := b.l1sAddrTran
-	sATCtrlPort := sat.GetPortByName("Control")
-	b.cp.AddressTranslators = append(b.cp.AddressTranslators, sATCtrlPort)
-	b.internalConn.PlugIn(sATCtrlPort, 1)
+	for _, sat := range b.l1sAddrTrans {
+		sATCtrlPort := sat.GetPortByName("Control")
+		b.cp.AddressTranslators = append(b.cp.AddressTranslators, sATCtrlPort)
+		b.internalConn.PlugIn(sATCtrlPort, 1)
+	}
 
-	iat := b.l1iAddrTran
-	iATCtrlPort := iat.GetPortByName("Control")
-	b.cp.AddressTranslators = append(b.cp.AddressTranslators, iATCtrlPort)
-	b.internalConn.PlugIn(iATCtrlPort, 1)
+	for _, iat := range b.l1iAddrTrans {
+		iATCtrlPort := iat.GetPortByName("Control")
+		b.cp.AddressTranslators = append(b.cp.AddressTranslators, iATCtrlPort)
+		b.internalConn.PlugIn(iATCtrlPort, 1)
+	}
 
 	for _, vROB := range b.l1vReorderBuffers {
 		vROBctrlPort := vROB.GetPortByName("Control")
@@ -386,17 +391,19 @@ func (b *R9NanoGPUBuilder) connectCPWithAddressTranslators() {
 		b.internalConn.PlugIn(vROBctrlPort, 1)
 	}
 
-	iROB := b.l1iReorderBuffer
-	iROBctrlPort := iROB.GetPortByName("Control")
-	b.cp.AddressTranslators = append(
-		b.cp.AddressTranslators, iROBctrlPort)
-	b.internalConn.PlugIn(iROBctrlPort, 1)
+	for _, iROB := range b.l1iReorderBuffers {
+		iROBctrlPort := iROB.GetPortByName("Control")
+		b.cp.AddressTranslators = append(
+			b.cp.AddressTranslators, iROBctrlPort)
+		b.internalConn.PlugIn(iROBctrlPort, 1)
+	}
 
-	sROB := b.l1sReorderBuffer
-	sROBctrlPort := sROB.GetPortByName("Control")
-	b.cp.AddressTranslators = append(
-		b.cp.AddressTranslators, sROBctrlPort)
-	b.internalConn.PlugIn(sROBctrlPort, 1)
+	for _, sROB := range b.l1sReorderBuffers {
+		sROBctrlPort := sROB.GetPortByName("Control")
+		b.cp.AddressTranslators = append(
+			b.cp.AddressTranslators, sROBctrlPort)
+		b.internalConn.PlugIn(sROBctrlPort, 1)
+	}
 }
 
 func (b *R9NanoGPUBuilder) connectCPWithTLBs() {
@@ -412,15 +419,17 @@ func (b *R9NanoGPUBuilder) connectCPWithTLBs() {
 		b.internalConn.PlugIn(vCtrlPort, 1)
 	}
 
-	stlb := b.l1sTLB
-	sCtrlPort := stlb.GetPortByName("Control")
-	b.cp.TLBs = append(b.cp.TLBs, sCtrlPort)
-	b.internalConn.PlugIn(sCtrlPort, 1)
+	for _, stlb := range b.l1sTLBs {
+		sCtrlPort := stlb.GetPortByName("Control")
+		b.cp.TLBs = append(b.cp.TLBs, sCtrlPort)
+		b.internalConn.PlugIn(sCtrlPort, 1)
+	}
 
-	itlb := b.l1iTLB
-	ictrlPort := itlb.GetPortByName("Control")
-	b.cp.TLBs = append(b.cp.TLBs, ictrlPort)
-	b.internalConn.PlugIn(ictrlPort, 1)
+	for _, itlb := range b.l1iTLBs {
+		ictrlPort := itlb.GetPortByName("Control")
+		b.cp.TLBs = append(b.cp.TLBs, ictrlPort)
+		b.internalConn.PlugIn(ictrlPort, 1)
+	}
 }
 
 func (b *R9NanoGPUBuilder) populateExternalPorts() {
@@ -439,7 +448,6 @@ func (b *R9NanoGPUBuilder) populateExternalPorts() {
 func (b *R9NanoGPUBuilder) connectL1TLBToL2TLB() {
 	tlbConn := sim.NewDirectConnection(b.gpuName+".L1TLBtoL2TLB",
 		b.engine, b.freq)
-
 	tlbConn.PlugIn(b.l2TLBs[0].GetPortByName("Top"), 64)
 
 	for _, l1vTLB := range b.l1vTLBs {
@@ -447,20 +455,18 @@ func (b *R9NanoGPUBuilder) connectL1TLBToL2TLB() {
 		tlbConn.PlugIn(l1vTLB.GetPortByName("Bottom"), 16)
 	}
 
-	l1iTLB := b.l1iTLB
-	l1iTLB.LowModule = b.l2TLBs[0].GetPortByName("Top")
-	tlbConn.PlugIn(l1iTLB.GetPortByName("Bottom"), 16)
+	for _, l1iTLB := range b.l1iTLBs {
+		l1iTLB.LowModule = b.l2TLBs[0].GetPortByName("Top")
+		tlbConn.PlugIn(l1iTLB.GetPortByName("Bottom"), 16)
+	}
 
-	l1sTLB := b.l1sTLB
-	l1sTLB.LowModule = b.l2TLBs[0].GetPortByName("Top")
-	tlbConn.PlugIn(l1sTLB.GetPortByName("Bottom"), 16)
+	for _, l1sTLB := range b.l1sTLBs {
+		l1sTLB.LowModule = b.l2TLBs[0].GetPortByName("Top")
+		tlbConn.PlugIn(l1sTLB.GetPortByName("Bottom"), 16)
+	}
 }
 
 func (b *R9NanoGPUBuilder) connectATToDRAM() {
-	iAT := b.l1iAddrTran
-
-	sAT := b.l1sAddrTran
-
 	lowModuleFinder := mem.NewInterleavedLowModuleFinder(
 		1 << b.log2MemoryBankInterleavingSize)
 	lowModuleFinder.ModuleForOtherAddresses = b.rdmaEngine.ToL1
@@ -473,15 +479,19 @@ func (b *R9NanoGPUBuilder) connectATToDRAM() {
 	b.atToDramConnection.PlugIn(b.rdmaEngine.ToL1, 64)
 	b.atToDramConnection.PlugIn(b.rdmaEngine.ToL2, 64)
 
-	iAT.SetLowModuleFinder(lowModuleFinder)
-	sAT.SetLowModuleFinder(lowModuleFinder)
-
-	b.atToDramConnection.PlugIn(iAT.GetPortByName("Bottom"), 16)
-	b.atToDramConnection.PlugIn(sAT.GetPortByName("Bottom"), 16)
-
 	for _, vAT := range b.l1vAddrTrans {
 		vAT.SetLowModuleFinder(lowModuleFinder)
 		b.atToDramConnection.PlugIn(vAT.GetPortByName("Bottom"), 16)
+	}
+
+	for _, iAT := range b.l1iAddrTrans {
+		iAT.SetLowModuleFinder(lowModuleFinder)
+		b.atToDramConnection.PlugIn(iAT.GetPortByName("Bottom"), 16)
+	}
+
+	for _, sAT := range b.l1sAddrTrans {
+		sAT.SetLowModuleFinder(lowModuleFinder)
+		b.atToDramConnection.PlugIn(sAT.GetPortByName("Bottom"), 16)
 	}
 
 	for _, dram := range b.drams {

@@ -4,29 +4,53 @@ from multiprocessing.pool import ThreadPool
 from datetime import datetime
 
 exps = [
-    ("16CUPerGPU_withoutCache", "aes", []),
-    ("16CUPerGPU_withoutCache", "atax", []),
-    ("16CUPerGPU_withoutCache", "bicg", []),
-    ("16CUPerGPU_withoutCache", "bitonicsort", []),
-    ("16CUPerGPU_withoutCache", "conv2d", []),
-    ("16CUPerGPU_withoutCache", "fastwalshtransform", []),
-    ("16CUPerGPU_withoutCache", "fir", []),
-    ("16CUPerGPU_withoutCache", "fft", []),
-    ("16CUPerGPU_withoutCache", "floydwarshall", []),
-    ("16CUPerGPU_withoutCache", "im2col", []),
-    ("16CUPerGPU_withoutCache", "kmeans", []),
-    ("16CUPerGPU_withoutCache", "matrixmultiplication", []),
-    ("16CUPerGPU_withoutCache", "matrixtranspose", []),
-    ("16CUPerGPU_withoutCache", "nbody", []),
-    ("16CUPerGPU_withoutCache", "nw", []),
-    ("16CUPerGPU_withoutCache", "pagerank", []),
-    ("16CUPerGPU_withoutCache", "relu", []),
-    ("16CUPerGPU_withoutCache", "simpleconvolution", []),
-    ("16CUPerGPU_withoutCache", "spmv", []),
-    ("16CUPerGPU_withoutCache", "stencil2d", []),
-    ("16CUPerGPU_withoutCache", "nbody", []),
-    ("16CUPerGPU_withoutCache", "nw", []),
-    ("16CUPerGPU_withoutCache", "pagerank", [])    
+    ("32CUPerGPU_withoutCache", "atax", []),
+    ("32CUPerGPU_withoutCache", "bicg", []),
+    ("32CUPerGPU_withoutCache", "bitonicsort", []),
+    ("32CUPerGPU_withoutCache", "fastwalshtransform", []),
+    ("32CUPerGPU_withoutCache", "fir", []),
+    ("32CUPerGPU_withoutCache", "fft", []),
+    ("32CUPerGPU_withoutCache", "im2col", []),
+    ("32CUPerGPU_withoutCache", "kmeans", []),
+    ("32CUPerGPU_withoutCache", "matrixmultiplication", []),
+    ("32CUPerGPU_withoutCache", "matrixtranspose", []),
+    ("32CUPerGPU_withoutCache", "nbody", []),
+    ("32CUPerGPU_withoutCache", "nw", []),
+    ("32CUPerGPU_withoutCache", "pagerank", []),
+    ("32CUPerGPU_withoutCache", "relu", []),
+    ("32CUPerGPU_withoutCache", "spmv", []),
+
+    ("64CUPerGPU_withoutCache", "atax", []),
+    ("64CUPerGPU_withoutCache", "bicg", []),
+    ("64CUPerGPU_withoutCache", "bitonicsort", []),
+    ("64CUPerGPU_withoutCache", "fastwalshtransform", []),
+    ("64CUPerGPU_withoutCache", "fir", []),
+    ("64CUPerGPU_withoutCache", "fft", []),
+    ("64CUPerGPU_withoutCache", "im2col", []),
+    ("64CUPerGPU_withoutCache", "kmeans", []),
+    ("64CUPerGPU_withoutCache", "matrixmultiplication", []),
+    ("64CUPerGPU_withoutCache", "matrixtranspose", []),
+    ("64CUPerGPU_withoutCache", "nbody", []),
+    ("64CUPerGPU_withoutCache", "nw", []),
+    ("64CUPerGPU_withoutCache", "pagerank", []),
+    ("64CUPerGPU_withoutCache", "relu", []),
+    ("64CUPerGPU_withoutCache", "spmv", []),   
+
+    ("128CUPerGPU_withoutCache", "atax", []),
+    ("128CUPerGPU_withoutCache", "bicg", []),
+    ("128CUPerGPU_withoutCache", "bitonicsort", []),
+    ("128CUPerGPU_withoutCache", "fastwalshtransform", []),
+    ("128CUPerGPU_withoutCache", "fir", []),
+    ("128CUPerGPU_withoutCache", "fft", []),
+    ("128CUPerGPU_withoutCache", "im2col", []),
+    ("128CUPerGPU_withoutCache", "kmeans", []),
+    ("128CUPerGPU_withoutCache", "matrixmultiplication", []),
+    ("128CUPerGPU_withoutCache", "matrixtranspose", []),
+    ("128CUPerGPU_withoutCache", "nbody", []),
+    ("128CUPerGPU_withoutCache", "nw", []),
+    ("128CUPerGPU_withoutCache", "pagerank", []),
+    ("128CUPerGPU_withoutCache", "relu", []),
+    ("128CUPerGPU_withoutCache", "spmv", []),   
 ]
 
 output_dir = ""
@@ -74,7 +98,7 @@ def run_exp(exp):
 
 def create_output_dir():
     global output_dir
-    output_dir = f'results/{datetime.now().strftime("%Y-%m-%d-%H-%M-%S")}'
+    output_dir = f'results/{datetime.now().strftime("%Y-%m-%d-%H-%M-%S_GPUWithoutCacheDesign")}'
 
     if not os.path.exists('results'):
         os.makedirs('results')
