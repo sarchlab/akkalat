@@ -69,7 +69,7 @@ type R9NanoGPUBuilder struct {
 func MakeR9NanoGPUBuilder() R9NanoGPUBuilder {
 	b := R9NanoGPUBuilder{
 		freq:                           1 * sim.GHz,
-		numShader:                      1,
+		numShader:                      4,
 		numMemoryBank:                  16,
 		log2PageSize:                   12,
 		log2MemoryBankInterleavingSize: 12,

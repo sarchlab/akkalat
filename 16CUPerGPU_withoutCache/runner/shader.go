@@ -55,7 +55,7 @@ func makeShaderBuilder() shaderBuilder {
 	builder := shaderBuilder{
 		gpuID:             0,
 		name:              "Shader",
-		numOfCU:           16,
+		numOfCU:           4,
 		freq:              1 * sim.GHz,
 		log2CacheLineSize: 6,
 		log2PageSize:      12,
