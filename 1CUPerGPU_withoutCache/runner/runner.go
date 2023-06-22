@@ -14,13 +14,13 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/sarchlab/akita/v3/monitoring"
+	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/akita/v3/tracing"
+	"github.com/sarchlab/mgpusim/v3/benchmarks"
+	"github.com/sarchlab/mgpusim/v3/driver"
+	"github.com/sarchlab/mgpusim/v3/timing/rdma"
 	"github.com/tebeka/atexit"
-	"gitlab.com/akita/akita/v3/monitoring"
-	"gitlab.com/akita/akita/v3/sim"
-	"gitlab.com/akita/akita/v3/tracing"
-	"gitlab.com/akita/mgpusim/v3/benchmarks"
-	"gitlab.com/akita/mgpusim/v3/driver"
-	"gitlab.com/akita/mgpusim/v3/timing/rdma"
 )
 
 var timingFlag = flag.Bool("timing", false, "Run detailed timing simulation.")
@@ -64,6 +64,10 @@ var bandwidthFlag = flag.Int("bandwidth", 1,
 	"The bandwidth of the network as a multiple of 16GB/s.")
 var maxNumHopsFlag = flag.Int("max-num-hops", -1,
 	"The maximum number of hops in the network")
+var analyszerNameFlag = flag.String("analyzer-Name", "",
+	"The name of the analyzer to use.")
+var analyszerPeriodFlag = flag.Float64("analyzer-period", 0.0,
+	"The period to dump the analyzer results.")
 
 type verificationPreEnablingBenchmark interface {
 	benchmarks.Benchmark
@@ -286,6 +290,8 @@ func (r *Runner) buildTimingPlatform() {
 
 	r.monitor = monitoring.NewMonitor()
 	b = b.WithMonitor(r.monitor)
+
+	b = b.setAnalyszer(b)
 
 	if *magicMemoryCopy {
 		b = b.WithMagicMemoryCopy()

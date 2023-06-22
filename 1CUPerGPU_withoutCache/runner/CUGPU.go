@@ -3,20 +3,21 @@ package runner
 import (
 	"fmt"
 
-	"gitlab.com/akita/mgpusim/v3/timing/rdma"
-	rob2 "gitlab.com/akita/mgpusim/v3/timing/rob"
+	"github.com/sarchlab/mgpusim/v3/timing/rdma"
+	rob2 "github.com/sarchlab/mgpusim/v3/timing/rob"
 
-	"gitlab.com/akita/akita/v3/monitoring"
-	"gitlab.com/akita/akita/v3/sim"
-	"gitlab.com/akita/akita/v3/tracing"
-	"gitlab.com/akita/mem/v3/idealmemcontroller"
-	"gitlab.com/akita/mem/v3/mem"
-	"gitlab.com/akita/mem/v3/vm/addresstranslator"
-	"gitlab.com/akita/mem/v3/vm/mmu"
-	"gitlab.com/akita/mem/v3/vm/tlb"
-	"gitlab.com/akita/mgpusim/v3/timing/cp"
-	"gitlab.com/akita/mgpusim/v3/timing/cu"
-	"gitlab.com/akita/mgpusim/v3/timing/pagemigrationcontroller"
+	"github.com/sarchlab/akita/v3/analysis"
+	"github.com/sarchlab/akita/v3/mem/idealmemcontroller"
+	"github.com/sarchlab/akita/v3/mem/mem"
+	"github.com/sarchlab/akita/v3/mem/vm/addresstranslator"
+	"github.com/sarchlab/akita/v3/mem/vm/mmu"
+	"github.com/sarchlab/akita/v3/mem/vm/tlb"
+	"github.com/sarchlab/akita/v3/monitoring"
+	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/akita/v3/tracing"
+	"github.com/sarchlab/mgpusim/v3/timing/cp"
+	"github.com/sarchlab/mgpusim/v3/timing/cu"
+	"github.com/sarchlab/mgpusim/v3/timing/pagemigrationcontroller"
 )
 
 type R9NanoGPUBuilder struct {
@@ -37,6 +38,8 @@ type R9NanoGPUBuilder struct {
 	visTracer          tracing.Tracer
 	memTracer          tracing.Tracer
 	monitor            *monitoring.Monitor
+
+	perfAnalyzer *analysis.PerfAnalyzer
 
 	gpuName                 string
 	gpu                     *GPU
@@ -141,6 +144,10 @@ func (b *R9NanoGPUBuilder) populateCU(s *shader) {
 	if b.monitor != nil {
 		b.monitor.RegisterComponent(s.computeUnit)
 	}
+
+	if b.perfAnalyzer != nil {
+		b.perfAnalyzer.RegisterComponent(b.cu)
+	}
 }
 
 func (b *R9NanoGPUBuilder) populateROB(s *shader) {
@@ -148,6 +155,10 @@ func (b *R9NanoGPUBuilder) populateROB(s *shader) {
 
 	if b.monitor != nil {
 		b.monitor.RegisterComponent(s.vectorRoB)
+	}
+
+	if b.perfAnalyzer != nil {
+		b.perfAnalyzer.RegisterComponent(s.vectorRoB)
 	}
 }
 
@@ -157,6 +168,10 @@ func (b *R9NanoGPUBuilder) populateTLB(s *shader) {
 	if b.monitor != nil {
 		b.monitor.RegisterComponent(s.vectorTLB)
 	}
+
+	if b.perfAnalyzer != nil {
+		b.perfAnalyzer.RegisterComponent(s.vectorTLB)
+	}
 }
 
 func (b *R9NanoGPUBuilder) populateL1VAddressTranslator(s *shader) {
@@ -164,6 +179,10 @@ func (b *R9NanoGPUBuilder) populateL1VAddressTranslator(s *shader) {
 
 	if b.monitor != nil {
 		b.monitor.RegisterComponent(s.vectorAddressTranslator)
+	}
+
+	if b.perfAnalyzer != nil {
+		b.perfAnalyzer.RegisterComponent(s.vectorAddressTranslator)
 	}
 }
 
@@ -178,6 +197,12 @@ func (b *R9NanoGPUBuilder) populateScalerMemoryHierarchy(s *shader) {
 		b.monitor.RegisterComponent(s.scalarRoB)
 		b.monitor.RegisterComponent(s.scalarTLB)
 	}
+
+	if b.perfAnalyzer != nil {
+		b.perfAnalyzer.RegisterComponent(s.scalarAddressTranslator)
+		b.perfAnalyzer.RegisterComponent(s.scalarRoB)
+		b.perfAnalyzer.RegisterComponent(s.scalarTLB)
+	}
 }
 
 func (b *R9NanoGPUBuilder) populateInstMemoryHierarchy(s *shader) {
@@ -190,6 +215,12 @@ func (b *R9NanoGPUBuilder) populateInstMemoryHierarchy(s *shader) {
 		b.monitor.RegisterComponent(s.instructionAddressTranslator)
 		b.monitor.RegisterComponent(s.instructionRoB)
 		b.monitor.RegisterComponent(s.instructionTLB)
+	}
+
+	if b.perfAnalyzer != nil {
+		b.perfAnalyzer.RegisterComponent(s.instructionAddressTranslator)
+		b.perfAnalyzer.RegisterComponent(s.instructionRoB)
+		b.perfAnalyzer.RegisterComponent(s.instructionTLB)
 	}
 }
 
@@ -215,6 +246,10 @@ func (b *R9NanoGPUBuilder) buildDRAMControllers() {
 			b.monitor.RegisterComponent(dram)
 		}
 
+		if b.perfAnalyzer != nil {
+			b.perfAnalyzer.RegisterComponent(dram)
+		}
+
 		if b.globalStorage != nil {
 			dram.Storage = b.globalStorage
 		}
@@ -238,6 +273,10 @@ func (b *R9NanoGPUBuilder) buildCP() {
 		b.monitor.RegisterComponent(b.cp)
 	}
 
+	if b.perfAnalyzer != nil {
+		b.perfAnalyzer.RegisterComponent(b.cp)
+	}
+
 	b.buildDMAEngine()
 	b.buildRDMAEngine()
 	b.buildPageMigrationController()
@@ -256,6 +295,10 @@ func (b *R9NanoGPUBuilder) buildDMAEngine() {
 	if b.monitor != nil {
 		b.monitor.RegisterComponent(b.dmaEngine)
 	}
+
+	if b.perfAnalyzer != nil {
+		b.perfAnalyzer.RegisterComponent(b.dmaEngine)
+	}
 }
 
 func (b *R9NanoGPUBuilder) buildRDMAEngine() {
@@ -269,6 +312,10 @@ func (b *R9NanoGPUBuilder) buildRDMAEngine() {
 
 	if b.monitor != nil {
 		b.monitor.RegisterComponent(b.rdmaEngine)
+	}
+
+	if b.perfAnalyzer != nil {
+		b.perfAnalyzer.RegisterComponent(b.rdmaEngine)
 	}
 
 	if b.enableVisTracing {
@@ -287,6 +334,10 @@ func (b *R9NanoGPUBuilder) buildPageMigrationController() {
 
 	if b.monitor != nil {
 		b.monitor.RegisterComponent(b.pageMigrationController)
+	}
+
+	if b.perfAnalyzer != nil {
+		b.perfAnalyzer.RegisterComponent(b.pageMigrationController)
 	}
 }
 
@@ -312,6 +363,10 @@ func (b *R9NanoGPUBuilder) buildL2TLB() {
 
 	if b.monitor != nil {
 		b.monitor.RegisterComponent(l2TLB)
+	}
+
+	if b.perfAnalyzer != nil {
+		b.perfAnalyzer.RegisterComponent(l2TLB)
 	}
 }
 

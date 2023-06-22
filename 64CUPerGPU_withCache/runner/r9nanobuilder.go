@@ -3,23 +3,24 @@ package runner
 import (
 	"fmt"
 
-	rob2 "gitlab.com/akita/mgpusim/v3/timing/rob"
+	rob2 "github.com/sarchlab/mgpusim/v3/timing/rob"
 
-	"gitlab.com/akita/akita/v3/monitoring"
-	"gitlab.com/akita/akita/v3/sim"
-	"gitlab.com/akita/akita/v3/tracing"
-	"gitlab.com/akita/mem/v3/cache/writearound"
-	"gitlab.com/akita/mem/v3/cache/writeback"
-	"gitlab.com/akita/mem/v3/cache/writethrough"
-	"gitlab.com/akita/mem/v3/dram"
-	"gitlab.com/akita/mem/v3/mem"
-	"gitlab.com/akita/mem/v3/vm/addresstranslator"
-	"gitlab.com/akita/mem/v3/vm/mmu"
-	"gitlab.com/akita/mem/v3/vm/tlb"
-	"gitlab.com/akita/mgpusim/v3/timing/cp"
-	"gitlab.com/akita/mgpusim/v3/timing/cu"
-	"gitlab.com/akita/mgpusim/v3/timing/pagemigrationcontroller"
-	"gitlab.com/akita/mgpusim/v3/timing/rdma"
+	"github.com/sarchlab/akita/v3/analysis"
+	"github.com/sarchlab/akita/v3/mem/cache/writearound"
+	"github.com/sarchlab/akita/v3/mem/cache/writeback"
+	"github.com/sarchlab/akita/v3/mem/cache/writethrough"
+	"github.com/sarchlab/akita/v3/mem/dram"
+	"github.com/sarchlab/akita/v3/mem/mem"
+	"github.com/sarchlab/akita/v3/mem/vm/addresstranslator"
+	"github.com/sarchlab/akita/v3/mem/vm/mmu"
+	"github.com/sarchlab/akita/v3/mem/vm/tlb"
+	"github.com/sarchlab/akita/v3/monitoring"
+	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/akita/v3/tracing"
+	"github.com/sarchlab/mgpusim/v3/timing/cp"
+	"github.com/sarchlab/mgpusim/v3/timing/cu"
+	"github.com/sarchlab/mgpusim/v3/timing/pagemigrationcontroller"
+	"github.com/sarchlab/mgpusim/v3/timing/rdma"
 )
 
 // R9NanoGPUBuilder can build R9 Nano GPUs.
@@ -43,6 +44,7 @@ type R9NanoGPUBuilder struct {
 	visTracer          tracing.Tracer
 	memTracer          tracing.Tracer
 	monitor            *monitoring.Monitor
+	perfAnalyzer       *analysis.PerfAnalyzer
 
 	gpuName           string
 	gpu               *GPU
@@ -531,6 +533,10 @@ func (b *R9NanoGPUBuilder) buildL2Caches() {
 		if b.monitor != nil {
 			b.monitor.RegisterComponent(l2)
 		}
+
+		if b.perfAnalyzer != nil {
+			b.perfAnalyzer.RegisterComponent(l2)
+		}
 	}
 }
 
@@ -556,6 +562,10 @@ func (b *R9NanoGPUBuilder) buildDRAMControllers() {
 
 		if b.monitor != nil {
 			b.monitor.RegisterComponent(dram)
+		}
+
+		if b.perfAnalyzer != nil {
+			b.perfAnalyzer.RegisterComponent(dram)
 		}
 	}
 }
@@ -644,6 +654,10 @@ func (b *R9NanoGPUBuilder) populateCUs(sa *shaderArray) {
 		if b.monitor != nil {
 			b.monitor.RegisterComponent(cu)
 		}
+
+		if b.perfAnalyzer != nil {
+			b.perfAnalyzer.RegisterComponent(cu)
+		}
 	}
 }
 
@@ -653,6 +667,10 @@ func (b *R9NanoGPUBuilder) populateROBs(sa *shaderArray) {
 
 		if b.monitor != nil {
 			b.monitor.RegisterComponent(rob)
+		}
+
+		if b.perfAnalyzer != nil {
+			b.perfAnalyzer.RegisterComponent(rob)
 		}
 	}
 }
@@ -665,6 +683,10 @@ func (b *R9NanoGPUBuilder) populateTLBs(sa *shaderArray) {
 		if b.monitor != nil {
 			b.monitor.RegisterComponent(tlb)
 		}
+
+		if b.perfAnalyzer != nil {
+			b.perfAnalyzer.RegisterComponent(tlb)
+		}
 	}
 }
 
@@ -676,6 +698,10 @@ func (b *R9NanoGPUBuilder) populateL1Vs(sa *shaderArray) {
 		if b.monitor != nil {
 			b.monitor.RegisterComponent(l1v)
 		}
+
+		if b.perfAnalyzer != nil {
+			b.perfAnalyzer.RegisterComponent(l1v)
+		}
 	}
 }
 
@@ -685,6 +711,10 @@ func (b *R9NanoGPUBuilder) populateL1VAddressTranslators(sa *shaderArray) {
 
 		if b.monitor != nil {
 			b.monitor.RegisterComponent(at)
+		}
+
+		if b.perfAnalyzer != nil {
+			b.perfAnalyzer.RegisterComponent(at)
 		}
 	}
 }
@@ -703,6 +733,13 @@ func (b *R9NanoGPUBuilder) populateScalerMemoryHierarchy(sa *shaderArray) {
 		b.monitor.RegisterComponent(sa.l1sCache)
 		b.monitor.RegisterComponent(sa.l1sTLB)
 	}
+
+	if b.perfAnalyzer != nil {
+		b.perfAnalyzer.RegisterComponent(sa.l1sAT)
+		b.perfAnalyzer.RegisterComponent(sa.l1sROB)
+		b.perfAnalyzer.RegisterComponent(sa.l1sCache)
+		b.perfAnalyzer.RegisterComponent(sa.l1sTLB)
+	}
 }
 
 func (b *R9NanoGPUBuilder) populateInstMemoryHierarchy(sa *shaderArray) {
@@ -718,6 +755,13 @@ func (b *R9NanoGPUBuilder) populateInstMemoryHierarchy(sa *shaderArray) {
 		b.monitor.RegisterComponent(sa.l1iROB)
 		b.monitor.RegisterComponent(sa.l1iCache)
 		b.monitor.RegisterComponent(sa.l1iTLB)
+	}
+
+	if b.perfAnalyzer != nil {
+		b.perfAnalyzer.RegisterComponent(sa.l1iAT)
+		b.perfAnalyzer.RegisterComponent(sa.l1iROB)
+		b.perfAnalyzer.RegisterComponent(sa.l1iCache)
+		b.perfAnalyzer.RegisterComponent(sa.l1iTLB)
 	}
 }
 
@@ -737,6 +781,10 @@ func (b *R9NanoGPUBuilder) buildRDMAEngine() {
 	if b.enableVisTracing {
 		tracing.CollectTrace(b.rdmaEngine, b.visTracer)
 	}
+
+	if b.perfAnalyzer != nil {
+		b.perfAnalyzer.RegisterComponent(b.rdmaEngine)
+	}
 }
 
 func (b *R9NanoGPUBuilder) buildPageMigrationController() {
@@ -750,6 +798,14 @@ func (b *R9NanoGPUBuilder) buildPageMigrationController() {
 
 	if b.monitor != nil {
 		b.monitor.RegisterComponent(b.pageMigrationController)
+	}
+
+	if b.enableVisTracing {
+		tracing.CollectTrace(b.pageMigrationController, b.visTracer)
+	}
+
+	if b.perfAnalyzer != nil {
+		b.perfAnalyzer.RegisterComponent(b.pageMigrationController)
 	}
 }
 
@@ -766,13 +822,18 @@ func (b *R9NanoGPUBuilder) buildDMAEngine() {
 	if b.monitor != nil {
 		b.monitor.RegisterComponent(b.dmaEngine)
 	}
+
+	if b.perfAnalyzer != nil {
+		b.perfAnalyzer.RegisterComponent(b.dmaEngine)
+	}
 }
 
 func (b *R9NanoGPUBuilder) buildCP() {
 	builder := cp.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
-		WithMonitor(b.monitor)
+		WithMonitor(b.monitor).
+		WithPerfAnalyzer(b.perfAnalyzer)
 
 	if b.enableVisTracing {
 		builder = builder.WithVisTracer(b.visTracer)
@@ -813,6 +874,10 @@ func (b *R9NanoGPUBuilder) buildL2TLB() {
 	if b.monitor != nil {
 		b.monitor.RegisterComponent(l2TLB)
 	}
+
+	if b.perfAnalyzer != nil {
+		b.perfAnalyzer.RegisterComponent(l2TLB)
+	}
 }
 
 func (b *R9NanoGPUBuilder) numCU() int {
@@ -829,4 +894,11 @@ func (b *R9NanoGPUBuilder) connectWithDirectConnection(
 	)
 	conn.PlugIn(port1, bufferSize)
 	conn.PlugIn(port2, bufferSize)
+}
+
+func (b R9NanoGPUBuilder) WithPerfAnalyzer(
+	a *analysis.PerfAnalyzer,
+) R9NanoGPUBuilder {
+	b.perfAnalyzer = a
+	return b
 }

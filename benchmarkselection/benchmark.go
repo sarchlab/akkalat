@@ -1,28 +1,28 @@
 package benchmarkselection
 
 import (
-	"gitlab.com/akita/mgpusim/v3/benchmarks"
-	"gitlab.com/akita/mgpusim/v3/benchmarks/amdappsdk/bitonicsort"
-	"gitlab.com/akita/mgpusim/v3/benchmarks/amdappsdk/fastwalshtransform"
-	"gitlab.com/akita/mgpusim/v3/benchmarks/amdappsdk/floydwarshall"
-	"gitlab.com/akita/mgpusim/v3/benchmarks/amdappsdk/matrixmultiplication"
-	"gitlab.com/akita/mgpusim/v3/benchmarks/amdappsdk/matrixtranspose"
-	"gitlab.com/akita/mgpusim/v3/benchmarks/amdappsdk/nbody"
-	"gitlab.com/akita/mgpusim/v3/benchmarks/amdappsdk/simpleconvolution"
-	"gitlab.com/akita/mgpusim/v3/benchmarks/dnn/conv2d"
-	"gitlab.com/akita/mgpusim/v3/benchmarks/dnn/im2col"
-	"gitlab.com/akita/mgpusim/v3/benchmarks/dnn/relu"
-	"gitlab.com/akita/mgpusim/v3/benchmarks/heteromark/aes"
-	"gitlab.com/akita/mgpusim/v3/benchmarks/heteromark/fir"
-	"gitlab.com/akita/mgpusim/v3/benchmarks/heteromark/kmeans"
-	"gitlab.com/akita/mgpusim/v3/benchmarks/heteromark/pagerank"
-	"gitlab.com/akita/mgpusim/v3/benchmarks/polybench/atax"
-	"gitlab.com/akita/mgpusim/v3/benchmarks/polybench/bicg"
-	"gitlab.com/akita/mgpusim/v3/benchmarks/rodinia/nw"
-	"gitlab.com/akita/mgpusim/v3/benchmarks/shoc/fft"
-	"gitlab.com/akita/mgpusim/v3/benchmarks/shoc/spmv"
-	"gitlab.com/akita/mgpusim/v3/benchmarks/shoc/stencil2d"
-	"gitlab.com/akita/mgpusim/v3/driver"
+	"github.com/sarchlab/mgpusim/v3/benchmarks"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/amdappsdk/bitonicsort"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/amdappsdk/fastwalshtransform"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/amdappsdk/floydwarshall"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/amdappsdk/matrixmultiplication"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/amdappsdk/matrixtranspose"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/amdappsdk/nbody"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/amdappsdk/simpleconvolution"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/conv2d"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/im2col"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/dnn/relu"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/heteromark/aes"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/heteromark/fir"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/heteromark/kmeans"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/heteromark/pagerank"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/polybench/atax"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/polybench/bicg"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/rodinia/nw"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/shoc/fft"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/shoc/spmv"
+	"github.com/sarchlab/mgpusim/v3/benchmarks/shoc/stencil2d"
+	"github.com/sarchlab/mgpusim/v3/driver"
 )
 
 func SelectBenchmark(name string, driver *driver.Driver) benchmarks.Benchmark {
@@ -66,8 +66,8 @@ func SelectBenchmark(name string, driver *driver.Driver) benchmarks.Benchmark {
 		benchmark = fastwalshtransform
 	case "fir":
 		fir := fir.NewBenchmark(driver)
-		fir.Length = 10485760
-		// fir.Length = 10485
+		// fir.Length = 10485760
+		fir.Length = 10485
 		benchmark = fir
 	case "fft":
 		fft := fft.NewBenchmark(driver)

@@ -3,23 +3,19 @@ package runner
 import (
 	"fmt"
 
-	rob2 "gitlab.com/akita/mgpusim/v3/timing/rob"
+	"github.com/sarchlab/mgpusim/v3/timing/rdma"
+	rob2 "github.com/sarchlab/mgpusim/v3/timing/rob"
 
-	"gitlab.com/akita/akita/v3/monitoring"
-	"gitlab.com/akita/akita/v3/sim"
-	"gitlab.com/akita/akita/v3/tracing"
-	"gitlab.com/akita/mem/v3/cache/writearound"
-	"gitlab.com/akita/mem/v3/cache/writeback"
-	"gitlab.com/akita/mem/v3/cache/writethrough"
-	"gitlab.com/akita/mem/v3/dram"
-	"gitlab.com/akita/mem/v3/mem"
-	"gitlab.com/akita/mem/v3/vm/addresstranslator"
-	"gitlab.com/akita/mem/v3/vm/mmu"
-	"gitlab.com/akita/mem/v3/vm/tlb"
-	"gitlab.com/akita/mgpusim/v3/timing/cp"
-	"gitlab.com/akita/mgpusim/v3/timing/cu"
-	"gitlab.com/akita/mgpusim/v3/timing/pagemigrationcontroller"
-	"gitlab.com/akita/mgpusim/v3/timing/rdma"
+	"github.com/sarchlab/akita/v3/mem/mem"
+	"github.com/sarchlab/akita/v3/mem/vm/addresstranslator"
+	"github.com/sarchlab/akita/v3/mem/vm/mmu"
+	"github.com/sarchlab/akita/v3/mem/vm/tlb"
+	"github.com/sarchlab/akita/v3/monitoring"
+	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/akita/v3/tracing"
+	"github.com/sarchlab/mgpusim/v3/timing/cp"
+	"github.com/sarchlab/mgpusim/v3/timing/cu"
+	"github.com/sarchlab/mgpusim/v3/timing/pagemigrationcontroller"
 )
 
 // R9NanoGPUBuilder can build R9 Nano GPUs.
@@ -72,6 +68,8 @@ type R9NanoGPUBuilder struct {
 	rdmaEngine              *rdma.Engine
 	pageMigrationController *pagemigrationcontroller.PageMigrationController
 	globalStorage           *mem.Storage
+
+	perfAnalyzer *analysis.PerfAnalyzer
 
 	internalConn           *sim.DirectConnection
 	l1TLBToL2TLBConnection *sim.DirectConnection

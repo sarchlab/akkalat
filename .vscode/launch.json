@@ -17,7 +17,7 @@
 			"type": "go",
 			"request": "launch",
 			"mode": "auto",
-			"program": "/home/daoxuan/daoxuan_wafer_scale/src/akkalat/8CUPerGPU_withoutCache",
+			"program": "/Users/daoxuanxu/GPU_simulator/src/akkalat/128CUPerGPU_withoutCache",
 			"args": [
 				"-timing",
 				"-magic-memory-copy",
@@ -31,13 +31,14 @@
 			"type": "go",
 			"request": "launch",
 			"mode": "auto",
-			"program": "/home/daoxuan/daoxuan_wafer_scale/src/akkalat/model1",
+			"program": "/Users/daoxuanxu/GPU_simulator/src/akkalat/64CUPerGPU_withCache",
 			"args": [
 				"-timing",
 				"-magic-memory-copy",
 				"-benchmark=fir",
 				"-report-all",
-				"-num-memory-banks=8"
+				"-analyzer-Name=port.csv",
+                "-analyzer-period=1e-6"
 			],
 			// "envFile": "${workspaceFolder}/../.env",
 		},

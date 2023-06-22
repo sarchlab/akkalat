@@ -5,16 +5,17 @@ import (
 	"log"
 	"os"
 
-	memtraces "gitlab.com/akita/mem/v3/trace"
+	memtraces "github.com/sarchlab/akita/v3/mem/trace"
 
-	"gitlab.com/akita/akita/v3/monitoring"
-	"gitlab.com/akita/akita/v3/sim"
-	"gitlab.com/akita/akita/v3/tracing"
-	"gitlab.com/akita/mem/v3/mem"
-	"gitlab.com/akita/mem/v3/vm"
-	"gitlab.com/akita/mem/v3/vm/mmu"
-	"gitlab.com/akita/mgpusim/v3/driver"
-	"gitlab.com/akita/noc/v3/networking/mesh"
+	"github.com/sarchlab/akita/v3/analysis"
+	"github.com/sarchlab/akita/v3/mem/mem"
+	"github.com/sarchlab/akita/v3/mem/vm"
+	"github.com/sarchlab/akita/v3/mem/vm/mmu"
+	"github.com/sarchlab/akita/v3/monitoring"
+	"github.com/sarchlab/akita/v3/noc/networking/mesh"
+	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/akita/v3/tracing"
+	"github.com/sarchlab/mgpusim/v3/driver"
 )
 
 // R9NanoPlatformBuilder can build a platform that equips R9Nano GPU.
@@ -40,6 +41,10 @@ type R9NanoPlatformBuilder struct {
 	monitor   *monitoring.Monitor
 
 	globalStorage *mem.Storage
+
+	perfAnalysisFileName string
+	perfAnalyzingPeriod  float64
+	perfAnalyzer         *analysis.PerfAnalyzer
 
 	gpus []*GPU
 }
@@ -174,12 +179,14 @@ func (b R9NanoPlatformBuilder) Build() *Platform {
 		WithLog2PageSize(b.log2PageSize).
 		WithGlobalStorage(b.globalStorage).
 		Build("Driver")
+
 	// file, err := os.Create("driver_comm.csv")
+	// interval := float64(0.000000001)
 	// if err != nil {
 	// 	panic(err)
 	// }
 	// gpuDriver.GetPortByName("GPU").AcceptHook(
-	// 	sim.NewPortMsgLogger(log.New(file, "", 0)))
+	// 	sim.NewPortBandwidthlogger(log.New(file, "", 0), b.engine, sim.VTimeInSec(interval)))
 
 	if b.monitor != nil {
 		b.monitor.RegisterComponent(gpuDriver)
@@ -431,4 +438,15 @@ func (b *R9NanoPlatformBuilder) configPMC(
 		gpu.PMC.GetPortByName("Remote"))
 	gpuDriver.RemotePMCPorts = append(
 		gpuDriver.RemotePMCPorts, gpu.PMC.GetPortByName("Remote"))
+}
+
+func (b *R9NanoPlatformBuilder) setupBufferLevelTracing() {
+
+	if b.perfAnalysisFileName != "" {
+		b.perfAnalyzer = analysis.NewPerfAnalyzer(
+			b.perfAnalysisFileName,
+			sim.VTimeInSec(b.perfAnalyzingPeriod),
+			b.engine,
+		)
+	}
 }

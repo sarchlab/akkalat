@@ -5,16 +5,17 @@ import (
 	"log"
 	"os"
 
-	memtraces "gitlab.com/akita/mem/v3/trace"
+	memtraces "github.com/sarchlab/akita/v3/mem/trace"
 
-	"gitlab.com/akita/akita/v3/monitoring"
-	"gitlab.com/akita/akita/v3/sim"
-	"gitlab.com/akita/akita/v3/tracing"
-	"gitlab.com/akita/mem/v3/mem"
-	"gitlab.com/akita/mem/v3/vm"
-	"gitlab.com/akita/mem/v3/vm/mmu"
-	"gitlab.com/akita/mgpusim/v3/driver"
-	"gitlab.com/akita/noc/v3/networking/mesh"
+	"github.com/sarchlab/akita/v3/analysis"
+	"github.com/sarchlab/akita/v3/mem/mem"
+	"github.com/sarchlab/akita/v3/mem/vm"
+	"github.com/sarchlab/akita/v3/mem/vm/mmu"
+	"github.com/sarchlab/akita/v3/monitoring"
+	"github.com/sarchlab/akita/v3/noc/networking/mesh"
+	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/akita/v3/tracing"
+	"github.com/sarchlab/mgpusim/v3/driver"
 )
 
 // R9NanoPlatformBuilder can build a platform that equips R9Nano GPU.
@@ -39,6 +40,10 @@ type R9NanoPlatformBuilder struct {
 	monitor   *monitoring.Monitor
 
 	globalStorage *mem.Storage
+
+	perfAnalysisFileName string
+	perfAnalyzingPeriod  float64
+	perfAnalyzer         *analysis.PerfAnalyzer
 
 	gpus []*GPU
 }
@@ -150,7 +155,7 @@ func (b R9NanoPlatformBuilder) Build(numMemoryBank int) *Platform {
 		b.monitor.RegisterEngine(b.engine)
 	}
 
-	b.createVisTracer()
+	// b.createVisTracer()
 
 	numGPU := b.tileWidth*b.tileHeight - 1
 	b.globalStorage = mem.NewStorage(uint64(1+numGPU) * 4 * mem.GB)
@@ -201,18 +206,18 @@ func (b R9NanoPlatformBuilder) Build(numMemoryBank int) *Platform {
 	}
 }
 
-func (b *R9NanoPlatformBuilder) createVisTracer() {
-	if !b.traceVis {
-		return
-	}
+// func (b *R9NanoPlatformBuilder) createVisTracer() {
+// 	if !b.traceVis {
+// 		return
+// 	}
 
-	tracer := tracing.NewMySQLTracerWithTimeRange(
-		b.engine,
-		b.visTraceStartTime,
-		b.visTraceEndTime)
-	tracer.Init()
-	b.visTracer = tracer
-}
+// 	tracer := tracing.NewMySQLTracerWithTimeRange(
+// 		b.engine,
+// 		b.visTraceStartTime,
+// 		b.visTraceEndTime)
+// 	tracer.Init()
+// 	b.visTracer = tracer
+// }
 
 func (b *R9NanoPlatformBuilder) createGPUs(
 	connector *mesh.Connector,
@@ -426,4 +431,24 @@ func (b *R9NanoPlatformBuilder) configPMC(
 		gpu.PMC.GetPortByName("Remote"))
 	gpuDriver.RemotePMCPorts = append(
 		gpuDriver.RemotePMCPorts, gpu.PMC.GetPortByName("Remote"))
+}
+
+func (b *R9NanoPlatformBuilder) setupPerfermanceTracing() {
+
+	if b.perfAnalysisFileName != "" {
+		b.perfAnalyzer = analysis.NewPerfAnalyzer(
+			b.perfAnalysisFileName,
+			sim.VTimeInSec(b.perfAnalyzingPeriod),
+			// b.engine,
+		)
+	}
+}
+
+func (b R9NanoPlatformBuilder) WithPerfAnalyzer(
+	Name string,
+	Period float64,
+) R9NanoPlatformBuilder {
+	b.perfAnalysisFileName = Name
+	b.perfAnalyzingPeriod = Period
+	return b
 }
