@@ -26,12 +26,12 @@ require (
 	gonum.org/v1/gonum v0.13.0 // indirect
 )
 
-replace gitlub.com/sarchlab/akita/mgpusim/v3 => ../mgpusim
+replace github.com/sarchlab/mgpusim/v3 v3.0.0-20230622042936-16aa3c53211e => ../mgpusim
 
 // replace gitlub.com/sarchlab/akita/noc/v3 => ../noc
 
 // replace gitlub.com/sarchlab/akita/v3/mem/ => ../mem
 
-replace gitlub.com/sarchlab/akita/v3 => ../akita
+replace github.com/sarchlab/akita/v3 v3.0.0-alpha.28.0.20230616154900-5e2fda40a106 => ../akita
 
 go 1.18

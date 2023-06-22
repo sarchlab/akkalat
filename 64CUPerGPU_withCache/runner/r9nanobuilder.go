@@ -196,6 +196,13 @@ func (b R9NanoGPUBuilder) WithMonitor(m *monitoring.Monitor) R9NanoGPUBuilder {
 	return b
 }
 
+func (b R9NanoGPUBuilder) WithPerfAnalyzer(
+	a *analysis.PerfAnalyzer,
+) R9NanoGPUBuilder {
+	b.perfAnalyzer = a
+	return b
+}
+
 // WithL2CacheSize set the total L2 cache size. The size of the L2 cache is
 // split between memory banks.
 func (b R9NanoGPUBuilder) WithL2CacheSize(size uint64) R9NanoGPUBuilder {
@@ -894,11 +901,4 @@ func (b *R9NanoGPUBuilder) connectWithDirectConnection(
 	)
 	conn.PlugIn(port1, bufferSize)
 	conn.PlugIn(port2, bufferSize)
-}
-
-func (b R9NanoGPUBuilder) WithPerfAnalyzer(
-	a *analysis.PerfAnalyzer,
-) R9NanoGPUBuilder {
-	b.perfAnalyzer = a
-	return b
 }

@@ -307,17 +307,20 @@ func (r *Runner) buildTimingPlatform() {
 	r.monitor.StartServer()
 }
 
-func (r *Runner) addMaxInstStopper() {
-	if *maxInstCount == 0 {
-		return
+func (*Runner) setAnalyszer(
+	b R9NanoPlatformBuilder,
+) R9NanoPlatformBuilder {
+	if *analyszerPeriodFlag != 0 && *analyszerNameFlag == "" {
+		panic("must specify -analyszer-name when using -analyszer-period")
 	}
 
-	r.maxInstStopper = newInstStopper(*maxInstCount)
-	for _, gpu := range r.platform.GPUs {
-		for _, cu := range gpu.CUs {
-			tracing.CollectTrace(cu.(tracing.NamedHookable), r.maxInstStopper)
-		}
+	if *analyszerNameFlag != "" {
+		b = b.WithPerfAnalyzer(
+			*analyszerNameFlag,
+			*analyszerPeriodFlag,
+		)
 	}
+	return b
 }
 
 func (r *Runner) addKernelTimeTracer() {
@@ -794,18 +797,15 @@ func (r *Runner) Engine() sim.Engine {
 	return r.platform.Engine
 }
 
-func (r *Runner) setAnalyszer(
-	b R9NanoPlatformBuilder,
-) R9NanoPlatformBuilder {
-	if *analyszerPeriodFlag != 0 && *analyszerNameFlag == "" {
-		panic("must specify -analyszer-name when using -analyszer-period")
+func (r *Runner) addMaxInstStopper() {
+	if *maxInstCount == 0 {
+		return
 	}
 
-	if *analyszerNameFlag != "" {
-		b = b.WithPerfAnalyzer(
-			*analyszerNameFlag,
-			*analyszerPeriodFlag,
-		)
+	r.maxInstStopper = newInstStopper(*maxInstCount)
+	for _, gpu := range r.platform.GPUs {
+		for _, cu := range gpu.CUs {
+			tracing.CollectTrace(cu.(tracing.NamedHookable), r.maxInstStopper)
+		}
 	}
-	return b
 }

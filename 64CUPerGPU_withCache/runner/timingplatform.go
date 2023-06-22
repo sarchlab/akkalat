@@ -117,6 +117,15 @@ func (b R9NanoPlatformBuilder) WithMonitor(
 	return b
 }
 
+func (b R9NanoPlatformBuilder) WithPerfAnalyzer(
+	Name string,
+	Period float64,
+) R9NanoPlatformBuilder {
+	b.perfAnalysisFileName = Name
+	b.perfAnalyzingPeriod = Period
+	return b
+}
+
 // WithMagicMemoryCopy uses global storage as memory components
 func (b R9NanoPlatformBuilder) WithMagicMemoryCopy() R9NanoPlatformBuilder {
 	b.useMagicMemoryCopy = true
@@ -156,6 +165,7 @@ func (b R9NanoPlatformBuilder) Build(numMemoryBank int) *Platform {
 	}
 
 	// b.createVisTracer()
+	b.setupPerfermanceTracing()
 
 	numGPU := b.tileWidth*b.tileHeight - 1
 	b.globalStorage = mem.NewStorage(uint64(1+numGPU) * 4 * mem.GB)
@@ -308,6 +318,10 @@ func (b R9NanoPlatformBuilder) createMMU(
 		b.monitor.RegisterComponent(mmuComponent)
 	}
 
+	if b.perfAnalyzer != nil {
+		b.perfAnalyzer.RegisterComponent(mmuComponent)
+	}
+
 	return mmuComponent, pageTable
 }
 
@@ -326,7 +340,8 @@ func (b *R9NanoPlatformBuilder) createGPUBuilder(
 		WithL2CacheSize(2 * mem.MB).
 		WithLog2MemoryBankInterleavingSize(7).
 		WithLog2PageSize(b.log2PageSize).
-		WithGlobalStorage(b.globalStorage)
+		WithGlobalStorage(b.globalStorage).
+		WithPerfAnalyzer(b.perfAnalyzer)
 
 	if b.monitor != nil {
 		gpuBuilder = gpuBuilder.WithMonitor(b.monitor)
@@ -439,16 +454,7 @@ func (b *R9NanoPlatformBuilder) setupPerfermanceTracing() {
 		b.perfAnalyzer = analysis.NewPerfAnalyzer(
 			b.perfAnalysisFileName,
 			sim.VTimeInSec(b.perfAnalyzingPeriod),
-			// b.engine,
+			b.engine,
 		)
 	}
-}
-
-func (b R9NanoPlatformBuilder) WithPerfAnalyzer(
-	Name string,
-	Period float64,
-) R9NanoPlatformBuilder {
-	b.perfAnalysisFileName = Name
-	b.perfAnalyzingPeriod = Period
-	return b
 }
