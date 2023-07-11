@@ -51,8 +51,8 @@ type R9NanoPlatformBuilder struct {
 // MakeR9NanoBuilder creates a EmuBuilder with default parameters.
 func MakeR9NanoBuilder() R9NanoPlatformBuilder {
 	b := R9NanoPlatformBuilder{
-		tileWidth:         16,
-		tileHeight:        24,
+		tileWidth:         4,
+		tileHeight:        4,
 		log2PageSize:      12,
 		visTraceStartTime: -1,
 		visTraceEndTime:   -1,
@@ -450,10 +450,15 @@ func (b *R9NanoPlatformBuilder) configPMC(
 func (b *R9NanoPlatformBuilder) setupPerfermanceTracing() {
 
 	if b.perfAnalysisFileName != "" {
-		b.perfAnalyzer = analysis.NewPerfAnalyzer(
-			b.perfAnalysisFileName,
-			sim.VTimeInSec(b.perfAnalyzingPeriod),
-			b.engine,
-		)
+		// b.perfAnalyzer = analysis.NewPerfAnalyzer(
+		// 	b.perfAnalysisFileName,
+		// 	sim.VTimeInSec(b.perfAnalyzingPeriod),
+		// 	b.engine,
+		// )
+		b.perfAnalyzer = analysis.MakePerfAnalyzerBuilder().
+			WithDBFilename(b.perfAnalysisFileName).
+			WithPeriod(sim.VTimeInSec(b.perfAnalyzingPeriod)).
+			WithEngine(b.engine).
+			Build()
 	}
 }

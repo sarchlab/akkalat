@@ -4,53 +4,54 @@ from multiprocessing.pool import ThreadPool
 from datetime import datetime
 
 exps = [
-    ("32CUPerGPU_withoutCache", "atax", []),
-    ("32CUPerGPU_withoutCache", "bicg", []),
-    ("32CUPerGPU_withoutCache", "bitonicsort", []),
-    ("32CUPerGPU_withoutCache", "fastwalshtransform", []),
-    ("32CUPerGPU_withoutCache", "fir", []),
-    ("32CUPerGPU_withoutCache", "fft", []),
-    ("32CUPerGPU_withoutCache", "im2col", []),
-    ("32CUPerGPU_withoutCache", "kmeans", []),
-    ("32CUPerGPU_withoutCache", "matrixmultiplication", []),
-    ("32CUPerGPU_withoutCache", "matrixtranspose", []),
-    ("32CUPerGPU_withoutCache", "nbody", []),
-    ("32CUPerGPU_withoutCache", "nw", []),
-    ("32CUPerGPU_withoutCache", "pagerank", []),
-    ("32CUPerGPU_withoutCache", "relu", []),
-    ("32CUPerGPU_withoutCache", "spmv", []),
+    # ("32CUPerGPU_withoutCache", "atax", []),
+    # ("32CUPerGPU_withoutCache", "bicg", []),
+    # ("32CUPerGPU_withoutCache", "bitonicsort", []),
+    # ("32CUPerGPU_withoutCache", "fastwalshtransform", []),
+    # ("32CUPerGPU_withoutCache", "fir", []),
+    # ("32CUPerGPU_withoutCache", "fft", []),
+    # ("32CUPerGPU_withoutCache", "im2col", []),
+    # ("32CUPerGPU_withoutCache", "kmeans", []),
+    # ("32CUPerGPU_withoutCache", "matrixmultiplication", []),
+    # ("32CUPerGPU_withoutCache", "matrixtranspose", []),
+    # ("32CUPerGPU_withoutCache", "nbody", []),
+    # ("32CUPerGPU_withoutCache", "nw", []),
+    # ("32CUPerGPU_withoutCache", "pagerank", []),
+    # ("32CUPerGPU_withoutCache", "relu", []),
+    # ("32CUPerGPU_withoutCache", "spmv", []),
 
-    ("64CUPerGPU_withoutCache", "atax", []),
-    ("64CUPerGPU_withoutCache", "bicg", []),
-    ("64CUPerGPU_withoutCache", "bitonicsort", []),
-    ("64CUPerGPU_withoutCache", "fastwalshtransform", []),
-    ("64CUPerGPU_withoutCache", "fir", []),
-    ("64CUPerGPU_withoutCache", "fft", []),
-    ("64CUPerGPU_withoutCache", "im2col", []),
-    ("64CUPerGPU_withoutCache", "kmeans", []),
-    ("64CUPerGPU_withoutCache", "matrixmultiplication", []),
-    ("64CUPerGPU_withoutCache", "matrixtranspose", []),
-    ("64CUPerGPU_withoutCache", "nbody", []),
-    ("64CUPerGPU_withoutCache", "nw", []),
-    ("64CUPerGPU_withoutCache", "pagerank", []),
-    ("64CUPerGPU_withoutCache", "relu", []),
-    ("64CUPerGPU_withoutCache", "spmv", []),   
+    # ("64CUPerGPU_withCache", "atax", ["-analyzer-Name=port.csv",
+    #             "-analyzer-period=1e-6"]),
+    # ("64CUPerGPU_withoutCache", "bicg", []),
+    # ("64CUPerGPU_withoutCache", "bitonicsort", []),
+    # ("64CUPerGPU_withoutCache", "fastwalshtransform", []),
+    ("64CUPerGPU_withCache", "fir", ["-analyzer-Name=firport -analyzer-period=1e-6"]),
+    # ("64CUPerGPU_withoutCache", "fft", []),
+    # ("64CUPerGPU_withoutCache", "im2col", []),
+    # ("64CUPerGPU_withoutCache", "kmeans", []),
+    # ("64CUPerGPU_withoutCache", "matrixmultiplication", []),
+    # ("64CUPerGPU_withoutCache", "matrixtranspose", []),
+    # ("64CUPerGPU_withoutCache", "nbody", []),
+    # ("64CUPerGPU_withoutCache", "nw", []),
+    # ("64CUPerGPU_withoutCache", "pagerank", []),
+    # ("64CUPerGPU_withoutCache", "relu", []),
+    # ("64CUPerGPU_withoutCache", "spmv", []),   
 
-    ("128CUPerGPU_withoutCache", "atax", []),
-    ("128CUPerGPU_withoutCache", "bicg", []),
-    ("128CUPerGPU_withoutCache", "bitonicsort", []),
-    ("128CUPerGPU_withoutCache", "fastwalshtransform", []),
-    ("128CUPerGPU_withoutCache", "fir", []),
-    ("128CUPerGPU_withoutCache", "fft", []),
-    ("128CUPerGPU_withoutCache", "im2col", []),
-    ("128CUPerGPU_withoutCache", "kmeans", []),
-    ("128CUPerGPU_withoutCache", "matrixmultiplication", []),
-    ("128CUPerGPU_withoutCache", "matrixtranspose", []),
-    ("128CUPerGPU_withoutCache", "nbody", []),
-    ("128CUPerGPU_withoutCache", "nw", []),
-    ("128CUPerGPU_withoutCache", "pagerank", []),
-    ("128CUPerGPU_withoutCache", "relu", []),
-    ("128CUPerGPU_withoutCache", "spmv", []),   
+    # ("128CUPerGPU_withoutCache", "atax", []),
+    # ("128CUPerGPU_withoutCache", "bicg", []),
+    # ("128CUPerGPU_withoutCache", "bitonicsort", []),
+    # ("128CUPerGPU_withoutCache", "fastwalshtransform", []),
+    # ("128CUPerGPU_withoutCache", "fir", []),
+    # ("128CUPerGPU_withoutCache", "fft", []),
+    # ("128CUPerGPU_withoutCache", "im2col", []),
+    # ("128CUPerGPU_withoutCache", "kmeans", []),
+    # ("128CUPerGPU_withoutCache", "matrixmultiplication", []),
+    # ("128CUPerGPU_withoutCache", "matrixtranspose", []),
+    # ("128CUPerGPU_withoutCache", "nbody", []),
+    # ("128CUPerGPU_withoutCache", "nw", []),
+    # ("128CUPerGPU_withoutCache", "pagerank", []),
+    # ("128CUPerGPU_withoutCache", "relu", []),
+    # ("128CUPerGPU_withoutCache", "spmv", []),   
 ]
 
 output_dir = ""
@@ -60,7 +61,7 @@ def run_exp(exp):
     try:
         cwd = os.getcwd()
         file_name = f'{output_dir}/{exp[0]}_{exp[1]}_{"_".join(exp[2])}'
-        metic_file_name = file_name + '_metrics'
+        metic_file_name = file_name + ' _metrics'
         cmd = f"{cwd}/{exp[0]}/{exp[0]} -benchmark={exp[1]} -timing " + \
             "-magic-memory-copy -report-all " + \
             f"-metric-file-name={metic_file_name} " + \
@@ -112,18 +113,18 @@ def main():
 
     create_output_dir()
 
-    process = subprocess.Popen("cd model1 && go build", shell=True, cwd=cwd)
+    process = subprocess.Popen("cd 64CUPerGPU_withCache && go build", shell=True, cwd=cwd)
     process.wait()
 
-    process = subprocess.Popen(
-        "cd model1_separate_cache && go build", shell=True, cwd=cwd)
-    process.wait()
+    # process = subprocess.Popen(
+    #     "cd model1_separate_cache && go build", shell=True, cwd=cwd)
+    # process.wait()
 
-    process = subprocess.Popen("cd model2 && go build", shell=True, cwd=cwd)
-    process.wait()
+    # process = subprocess.Popen("cd model2 && go build", shell=True, cwd=cwd)
+    # process.wait()
 
-    process = subprocess.Popen("cd model3 && go build", shell=True, cwd=cwd)
-    process.wait()
+    # process = subprocess.Popen("cd model3 && go build", shell=True, cwd=cwd)
+    # process.wait()
 
     tp = ThreadPool(16)
     for exp in exps:

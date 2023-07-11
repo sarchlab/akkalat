@@ -57,7 +57,7 @@ func MakeR9NanoBuilder() R9NanoPlatformBuilder {
 		visTraceStartTime: -1,
 		visTraceEndTime:   -1,
 		switchLatency:     10,
-		numSAPerGPU:       8,
+		numSAPerGPU:       16,
 		numCUPerSA:        4,
 		maxNumHops:        -1,
 	}
@@ -451,10 +451,10 @@ func (b *R9NanoPlatformBuilder) configPMC(
 func (b *R9NanoPlatformBuilder) setupPerfermanceTracing() {
 
 	if b.perfAnalysisFileName != "" {
-		b.perfAnalyzer = analysis.NewPerfAnalyzer(
-			b.perfAnalysisFileName,
-			sim.VTimeInSec(b.perfAnalyzingPeriod),
-			b.engine,
-		)
+		b.perfAnalyzer = analysis.MakePerfAnalyzerBuilder().
+			WithPeriod(sim.VTimeInSec(b.perfAnalyzingPeriod)).
+			WithDBFilename(b.perfAnalysisFileName).
+			WithEngine(b.engine).
+			Build()
 	}
 }

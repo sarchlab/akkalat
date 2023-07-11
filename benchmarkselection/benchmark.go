@@ -66,8 +66,8 @@ func SelectBenchmark(name string, driver *driver.Driver) benchmarks.Benchmark {
 		benchmark = fastwalshtransform
 	case "fir":
 		fir := fir.NewBenchmark(driver)
-		// fir.Length = 10485760
-		fir.Length = 64
+		fir.Length = 10485760 / 64
+		// fir.Length = 4096
 		benchmark = fir
 	case "fft":
 		fft := fft.NewBenchmark(driver)
@@ -122,8 +122,8 @@ func SelectBenchmark(name string, driver *driver.Driver) benchmarks.Benchmark {
 		benchmark = nw
 	case "pagerank":
 		pagerank := pagerank.NewBenchmark(driver)
-		pagerank.NumNodes = 262144
-		pagerank.NumConnections = 1048576
+		pagerank.NumNodes = 262144 / 16
+		pagerank.NumConnections = 1048576 / 16
 		pagerank.MaxIterations = 3
 		benchmark = pagerank
 	case "relu":
@@ -132,8 +132,8 @@ func SelectBenchmark(name string, driver *driver.Driver) benchmarks.Benchmark {
 		benchmark = relu
 	case "simpleconvolution":
 		simpleconvolution := simpleconvolution.NewBenchmark(driver)
-		simpleconvolution.Height = 4096
-		simpleconvolution.Width = 4096
+		simpleconvolution.Height = 2048
+		simpleconvolution.Width = 2048
 		simpleconvolution.SetMaskSize(3)
 		benchmark = simpleconvolution
 	case "spmv":

@@ -315,6 +315,7 @@ func (*Runner) setAnalyszer(
 	}
 
 	if *analyszerNameFlag != "" {
+		*analyszerNameFlag = fmt.Sprintf("%s%s", *analyszerNameFlag, ".csv")
 		b = b.WithPerfAnalyzer(
 			*analyszerNameFlag,
 			*analyszerPeriodFlag,
