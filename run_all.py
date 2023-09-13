@@ -25,7 +25,7 @@ exps = [
     # ("64CUPerGPU_withoutCache", "bicg", []),
     # ("64CUPerGPU_withoutCache", "bitonicsort", []),
     # ("64CUPerGPU_withoutCache", "fastwalshtransform", []),
-    ("64CUPerGPU_withCache", "fir", ["-analyzer-Name=firport -analyzer-period=1e-6"]),
+    # ("64CUPerGPU_withCache", "fir", ["-analyzer-Name=firport -analyzer-period=1e-6"]),
     # ("64CUPerGPU_withoutCache", "fft", []),
     # ("64CUPerGPU_withoutCache", "im2col", []),
     # ("64CUPerGPU_withoutCache", "kmeans", []),
@@ -52,6 +52,22 @@ exps = [
     # ("128CUPerGPU_withoutCache", "pagerank", []),
     # ("128CUPerGPU_withoutCache", "relu", []),
     # ("128CUPerGPU_withoutCache", "spmv", []),   
+
+    # ("256CUPerGPU_withCache", "atax", [" -num-memory-banks=64 -bandwidth=384"]),
+    # ("256CUPerGPU_withCache", "bicg", [" -num-memory-banks=64 -bandwidth=384"]),
+    # ("256CUPerGPU_withCache", "bitonicsort", [" -num-memory-banks=64 -bandwidth=384"]),
+    # ("256CUPerGPU_withCache", "fastwalshtransform", [" -num-memory-banks=64 -bandwidth=384"]),
+    # ("256CUPerGPU_withCache", "fir", [" -num-memory-banks=64 -bandwidth=384"]),
+    # ("256CUPerGPU_withCache", "fft", [" -num-memory-banks=64 -bandwidth=384"]),
+    ("256CUPerGPU_withCache", "im2col", [" -num-memory-banks=64 -bandwidth=384"]),
+    # ("256CUPerGPU_withCache", "kmeans", [" -num-memory-banks=64 -bandwidth=384"]),
+    ("256CUPerGPU_withCache", "matrixmultiplication", [" -num-memory-banks=64 -bandwidth=384"]),
+    ("256CUPerGPU_withCache", "matrixtranspose", [" -num-memory-banks=64 -bandwidth=384"]),
+    # ("256CUPerGPU_withCache", "nbody", [" -num-memory-banks=64 -bandwidth=384"]),
+    # ("256CUPerGPU_withCache", "nw", [" -num-memory-banks=64 -bandwidth=384"]),
+    # ("256CUPerGPU_withCache", "pagerank", [" -num-memory-banks=64 -bandwidth=384"]),
+    # ("256CUPerGPU_withCache", "relu", [" -num-memory-banks=64 -bandwidth=384"]),
+    # ("256CUPerGPU_withCache", "spmv", [" -num-memory-banks=64 -bandwidth=384"]),
 ]
 
 output_dir = ""
@@ -64,6 +80,7 @@ def run_exp(exp):
         metic_file_name = file_name + ' _metrics'
         cmd = f"{cwd}/{exp[0]}/{exp[0]} -benchmark={exp[1]} -timing " + \
             "-magic-memory-copy -report-all " + \
+            "-num-memory-banks=64 -bandwidth=384 " +\
             f"-metric-file-name={metic_file_name} " + \
             " ".join(exp[2])
         print(cmd)
@@ -99,7 +116,7 @@ def run_exp(exp):
 
 def create_output_dir():
     global output_dir
-    output_dir = f'results/{datetime.now().strftime("%Y-%m-%d-%H-%M-%S_GPUWithoutCacheDesign")}'
+    output_dir = f'results/{datetime.now().strftime("%Y-%m-%d-%H-%M-%S_memory_bank_cnanged")}'
 
     if not os.path.exists('results'):
         os.makedirs('results')
