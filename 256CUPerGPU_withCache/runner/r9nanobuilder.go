@@ -71,7 +71,7 @@ type R9NanoGPUBuilder struct {
 	lowModuleFinderForL2    *mem.InterleavedLowModuleFinder
 	lowModuleFinderForPMC   *mem.InterleavedLowModuleFinder
 	dmaEngine               *cp.DMAEngine
-	rdmaEngine              *rdma.Engine
+	rdmaEngine              *rdma.Comp
 	pageMigrationController *pagemigrationcontroller.PageMigrationController
 	globalStorage           *mem.Storage
 
@@ -776,12 +776,15 @@ func (b *R9NanoGPUBuilder) populateInstMemoryHierarchy(sa *shaderArray) {
 }
 
 func (b *R9NanoGPUBuilder) buildRDMAEngine() {
-	b.rdmaEngine = rdma.NewEngine(
-		fmt.Sprintf("%s.RDMA", b.gpuName),
-		b.engine,
-		b.lowModuleFinderForL1,
-		nil,
-	)
+	name := fmt.Sprintf("%s.RDMA", b.gpuName)
+	b.rdmaEngine = rdma.MakeBuilder().
+		WithEngine(b.engine).
+		WithBufferSize(128).
+		WithFreq(b.freq).
+		WithLocalModules(b.lowModuleFinderForL1).
+		WithRemoteModules(nil).
+		Build(name)
+
 	b.gpu.RDMAEngine = b.rdmaEngine
 
 	if b.monitor != nil {

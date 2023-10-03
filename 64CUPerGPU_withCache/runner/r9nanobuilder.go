@@ -71,7 +71,7 @@ type R9NanoGPUBuilder struct {
 	lowModuleFinderForL2    *mem.InterleavedLowModuleFinder
 	lowModuleFinderForPMC   *mem.InterleavedLowModuleFinder
 	dmaEngine               *cp.DMAEngine
-	rdmaEngine              *rdma.Engine
+	rdmaEngine              *rdma.Comp
 	pageMigrationController *pagemigrationcontroller.PageMigrationController
 	globalStorage           *mem.Storage
 
@@ -91,8 +91,8 @@ func MakeR9NanoGPUBuilder() R9NanoGPUBuilder {
 		log2CacheLineSize:              6,
 		log2PageSize:                   12,
 		log2MemoryBankInterleavingSize: 12,
-		l2CacheSize:                    2 * mem.MB,
-		dramSize:                       4 * mem.GB,
+		l2CacheSize:                    4 * mem.MB,
+		dramSize:                       16 * mem.GB,
 	}
 	return b
 }
@@ -299,7 +299,7 @@ func (b *R9NanoGPUBuilder) connectL1ToL2() {
 	lowModuleFinder.ModuleForOtherAddresses = b.rdmaEngine.ToL1
 	lowModuleFinder.UseAddressSpaceLimitation = true
 	lowModuleFinder.LowAddress = b.memAddrOffset
-	lowModuleFinder.HighAddress = b.memAddrOffset + 4*mem.GB
+	lowModuleFinder.HighAddress = b.memAddrOffset + 16*mem.GB
 
 	l1ToL2Conn := sim.NewDirectConnection(b.gpuName+".L1toL2",
 		b.engine, b.freq)
@@ -578,14 +578,14 @@ func (b *R9NanoGPUBuilder) buildDRAMControllers() {
 }
 
 func (b *R9NanoGPUBuilder) createDramControllerBuilder() dram.Builder {
-	memBankSize := 4 * mem.GB / uint64(b.numMemoryBank)
+	memBankSize := 16 * mem.GB / uint64(b.numMemoryBank)
 	if 4*mem.GB%uint64(b.numMemoryBank) != 0 {
 		panic("GPU memory size is not a multiple of the number of memory banks")
 	}
 
 	dramCol := 64
-	dramRow := 16384
-	dramDeviceWidth := 128
+	dramRow := 16384 * 2
+	dramDeviceWidth := 128 * 2
 	dramBankSize := dramCol * dramRow * dramDeviceWidth
 	dramBank := 4
 	dramBankGroup := 4
@@ -593,6 +593,9 @@ func (b *R9NanoGPUBuilder) createDramControllerBuilder() dram.Builder {
 	dramDevicePerRank := dramBusWidth / dramDeviceWidth
 	dramRankSize := dramBankSize * dramDevicePerRank * dramBank
 	dramRank := int(memBankSize * 8 / uint64(dramRankSize))
+	if dramRank == 0 {
+		panic("DRAMRank is 0")
+	}
 
 	memCtrlBuilder := dram.MakeBuilder().
 		WithEngine(b.engine).
@@ -773,12 +776,15 @@ func (b *R9NanoGPUBuilder) populateInstMemoryHierarchy(sa *shaderArray) {
 }
 
 func (b *R9NanoGPUBuilder) buildRDMAEngine() {
-	b.rdmaEngine = rdma.NewEngine(
-		fmt.Sprintf("%s.RDMA", b.gpuName),
-		b.engine,
-		b.lowModuleFinderForL1,
-		nil,
-	)
+	name := fmt.Sprintf("%s.RDMA", b.gpuName)
+	b.rdmaEngine = rdma.MakeBuilder().
+		WithEngine(b.engine).
+		WithBufferSize(128).
+		WithFreq(b.freq).
+		WithLocalModules(b.lowModuleFinderForL1).
+		WithRemoteModules(nil).
+		Build(name)
+
 	b.gpu.RDMAEngine = b.rdmaEngine
 
 	if b.monitor != nil {

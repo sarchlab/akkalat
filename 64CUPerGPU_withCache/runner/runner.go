@@ -105,7 +105,7 @@ type dramTransactionCountTracer struct {
 type rdmaTransactionCountTracer struct {
 	outgoingTracer *tracing.AverageTimeTracer
 	incomingTracer *tracing.AverageTimeTracer
-	rdmaEngine     *rdma.Engine
+	rdmaEngine     *rdma.Comp
 }
 
 // Runner is a class that helps running the benchmarks in the official samples.
@@ -559,13 +559,19 @@ func (r *Runner) addDRAMTracer() {
 }
 
 func (r *Runner) createUnifiedGPUs() {
-	unifiedGPUID := r.platform.Driver.CreateUnifiedGPU(nil, []int{
-		1, 2, 3, 4, 5, 6, 7, 8,
-		9, 10, 11, 12, 13, 14, 15, 16,
-		17, 18, 19, 20, 21, 22, 23, 24,
-	})
+	// unifiedGPUID := r.platform.Driver.CreateUnifiedGPU(nil, []int{
+	// 	1, 2, 3, 4, 5, 6, 7, 8,
+	// 	9, 10, 11, 12, 13, 14, 15, 16,
+	// 	17, 18, 19, 20, 21, 22, 23, 24,
+	// })
+	gpulist := make([]int, 48)
+	for i := 0; i < 48; i++ {
+		gpulist[i] = i + 1
+	}
+	unifiedGPUID := r.platform.Driver.CreateUnifiedGPU(nil, gpulist)
 
 	r.GPUIDs = []int{unifiedGPUID}
+	// r.GPUIDs = []int{unifiedGPUID}
 }
 
 func (r *Runner) gpuIDStringToList(gpuIDsString string) []int {

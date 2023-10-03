@@ -220,12 +220,12 @@ func (b *R9NanoPlatformBuilder) createVisTracer() {
 		return
 	}
 
-	tracer := tracing.NewMySQLTracerWithTimeRange(
-		b.engine,
-		b.visTraceStartTime,
-		b.visTraceEndTime)
-	tracer.Init()
-	b.visTracer = tracer
+	// tracer := tracing.NewMySQLTracerWithTimeRange(
+	// 	b.engine,
+	// 	b.visTraceStartTime,
+	// 	b.visTraceEndTime)
+	// tracer.Init()
+	// b.visTracer = tracer
 }
 
 func (b *R9NanoPlatformBuilder) createGPUs(
@@ -442,11 +442,11 @@ func (b *R9NanoPlatformBuilder) configPMC(
 
 func (b *R9NanoPlatformBuilder) setupBufferLevelTracing() {
 
-	if b.perfAnalysisFileName != "" {
-		b.perfAnalyzer = analysis.NewPerfAnalyzer(
-			b.perfAnalysisFileName,
-			sim.VTimeInSec(b.perfAnalyzingPeriod),
-			b.engine,
-		)
-	}
+	// if b.perfAnalysisFileName != "" {
+	// 	b.perfAnalyzer = analysis.NewPerfAnalyzer(
+	// 		b.perfAnalysisFileName,
+	// 		sim.VTimeInSec(b.perfAnalyzingPeriod),
+	// 		b.engine,
+	// 	)
+	// }
 }

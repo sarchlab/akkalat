@@ -14,7 +14,6 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/sarchlab/akita/v3/mem/mem"
 	"github.com/sarchlab/akita/v3/monitoring"
 	"github.com/sarchlab/akita/v3/sim"
 	"github.com/sarchlab/akita/v3/tracing"
@@ -104,7 +103,7 @@ type dramTransactionCountTracer struct {
 type rdmaTransactionCountTracer struct {
 	outgoingTracer *tracing.AverageTimeTracer
 	incomingTracer *tracing.AverageTimeTracer
-	rdmaEngine     *rdma.Engine
+	rdmaEngine     *rdma.Comp
 }
 
 // Runner is a class that helps running the benchmarks in the official samples.
@@ -291,7 +290,7 @@ func (r *Runner) buildTimingPlatform() {
 
 	r.monitor = monitoring.NewMonitor()
 	b = b.WithMonitor(r.monitor)
-	b = b.setAnalyszer(b)
+	// b = b.setAnalyszer(b)
 
 	if *magicMemoryCopy {
 		b = b.WithMagicMemoryCopy()
@@ -663,11 +662,11 @@ func (r *Runner) setAnalyszer(
 		panic("must specify -analyszer-name when using -analyszer-period")
 	}
 
-	if *analyszerNameFlag != "" {
-		b = b.WithBufferAnalyzer(
-			*analyszerNameFlag,
-			*analyszerPeriodFlag,
-		)
-	}
+	// if *analyszerNameFlag != "" {
+	// 	b = b.WithBufferAnalyzer(
+	// 		*analyszerNameFlag,
+	// 		*analyszerPeriodFlag,
+	// 	)
+	// }
 	return b
 }

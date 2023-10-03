@@ -17,7 +17,7 @@
 			"type": "go",
 			"request": "launch",
 			"mode": "auto",
-			"program": "/Users/daoxuanxu/GPU_simulator/src/akkalat/128CUPerGPU_withoutCache",
+			"program": "${workspaceFolder}/256CUPerGPU_withCache",
 			"args": [
 				"-timing",
 				"-magic-memory-copy",

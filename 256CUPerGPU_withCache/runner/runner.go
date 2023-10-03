@@ -105,7 +105,7 @@ type dramTransactionCountTracer struct {
 type rdmaTransactionCountTracer struct {
 	outgoingTracer *tracing.AverageTimeTracer
 	incomingTracer *tracing.AverageTimeTracer
-	rdmaEngine     *rdma.Engine
+	rdmaEngine     *rdma.Comp
 }
 
 // Runner is a class that helps running the benchmarks in the official samples.

@@ -57,7 +57,7 @@ type R9NanoGPUBuilder struct {
 	lowModuleFinderForL1    *mem.InterleavedLowModuleFinder
 	lowModuleFinderForPMC   *mem.InterleavedLowModuleFinder
 	dmaEngine               *cp.DMAEngine
-	rdmaEngine              *rdma.Engine
+	rdmaEngine              *rdma.Comp
 	pageMigrationController *pagemigrationcontroller.PageMigrationController
 	globalStorage           *mem.Storage
 
@@ -271,12 +271,12 @@ func (b *R9NanoGPUBuilder) buildDMAEngine() {
 }
 
 func (b *R9NanoGPUBuilder) buildRDMAEngine() {
-	b.rdmaEngine = rdma.NewEngine(
-		fmt.Sprintf("%s.RDMA", b.gpuName),
-		b.engine,
-		b.lowModuleFinderForL1,
-		nil,
-	)
+	// b.rdmaEngine = rdma.NewEngine(
+	// 	fmt.Sprintf("%s.RDMA", b.gpuName),
+	// 	b.engine,
+	// 	b.lowModuleFinderForL1,
+	// 	nil,
+	// )
 	b.gpu.RDMAEngine = b.rdmaEngine
 
 	if b.monitor != nil {

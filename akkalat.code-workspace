@@ -1,19 +1,14 @@
 {
-    "folders": [
-        {
-            "path": "."
-        },
-        {
-            "path": "../mem"
-        },
-        {
-            "path": "../mgpusim"
-        },
-        {
-            "path": "../noc"
-        },
-        {
-            "path": "../akita"
-        }
-    ]
+	"folders": [
+		{
+			"path": "."
+		},
+		{
+			"path": "../akita"
+		},
+		{
+			"path": "../mgpusim"
+		}
+	],
+	"settings": {}
 }

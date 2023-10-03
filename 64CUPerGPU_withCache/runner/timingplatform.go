@@ -51,12 +51,12 @@ type R9NanoPlatformBuilder struct {
 // MakeR9NanoBuilder creates a EmuBuilder with default parameters.
 func MakeR9NanoBuilder() R9NanoPlatformBuilder {
 	b := R9NanoPlatformBuilder{
-		tileWidth:         5,
-		tileHeight:        5,
+		tileWidth:         7,
+		tileHeight:        7,
 		log2PageSize:      12,
 		visTraceStartTime: -1,
 		visTraceEndTime:   -1,
-		switchLatency:     10,
+		switchLatency:     20,
 		numSAPerGPU:       16,
 		numCUPerSA:        4,
 		maxNumHops:        -1,
@@ -168,7 +168,7 @@ func (b R9NanoPlatformBuilder) Build(numMemoryBank int) *Platform {
 	b.setupPerfermanceTracing()
 
 	numGPU := b.tileWidth*b.tileHeight - 1
-	b.globalStorage = mem.NewStorage(uint64(1+numGPU) * 4 * mem.GB)
+	b.globalStorage = mem.NewStorage(uint64(1+numGPU) * 16 * mem.GB)
 
 	mmuComponent, pageTable := b.createMMU(b.engine)
 
@@ -181,6 +181,7 @@ func (b R9NanoPlatformBuilder) Build(numMemoryBank int) *Platform {
 		WithPageTable(pageTable).
 		WithLog2PageSize(b.log2PageSize).
 		WithGlobalStorage(b.globalStorage).
+		WithMemSize(16 * mem.GB).
 		Build("Driver")
 	// file, err := os.Create("driver_comm.csv")
 	// if err != nil {
@@ -249,14 +250,14 @@ func (b *R9NanoPlatformBuilder) createGPUs(
 
 func (b R9NanoPlatformBuilder) createPMCPageTable() *mem.BankedLowModuleFinder {
 	pmcAddressTable := new(mem.BankedLowModuleFinder)
-	pmcAddressTable.BankSize = 4 * mem.GB
+	pmcAddressTable.BankSize = 16 * mem.GB
 	pmcAddressTable.LowModules = append(pmcAddressTable.LowModules, nil)
 	return pmcAddressTable
 }
 
 func (b R9NanoPlatformBuilder) createRDMAAddrTable() *mem.BankedLowModuleFinder {
 	rdmaAddressTable := new(mem.BankedLowModuleFinder)
-	rdmaAddressTable.BankSize = 4 * mem.GB
+	rdmaAddressTable.BankSize = 16 * mem.GB
 	rdmaAddressTable.LowModules = append(rdmaAddressTable.LowModules, nil)
 	return rdmaAddressTable
 }
@@ -337,7 +338,7 @@ func (b *R9NanoPlatformBuilder) createGPUBuilder(
 		WithNumCUPerShaderArray(b.numCUPerSA).
 		WithNumShaderArray(b.numSAPerGPU).
 		WithNumMemoryBank(numMemoryBank).
-		WithL2CacheSize(2 * mem.MB).
+		WithL2CacheSize(4 * mem.MB).
 		WithLog2MemoryBankInterleavingSize(7).
 		WithLog2PageSize(b.log2PageSize).
 		WithGlobalStorage(b.globalStorage).
@@ -404,14 +405,14 @@ func (b *R9NanoPlatformBuilder) createGPU(
 	index := uint64(len(b.gpus)) + 1
 	gpuid := x + y*b.tileWidth
 	name := fmt.Sprintf("GPU[%d]", gpuid)
-	memAddrOffset := index * 4 * mem.GB
+	memAddrOffset := index * 16 * mem.GB
 	gpu := gpuBuilder.
 		WithMemAddrOffset(memAddrOffset).
 		Build(name, uint64(index))
 	gpuDriver.RegisterGPU(gpu.Domain.GetPortByName("CommandProcessor"),
 		driver.DeviceProperties{
-			CUCount:  32,
-			DRAMSize: 4 * mem.GB,
+			CUCount:  64,
+			DRAMSize: 16 * mem.GB,
 		})
 	gpu.CommandProcessor.Driver = gpuDriver.GetPortByName("GPU")
 
@@ -450,11 +451,11 @@ func (b *R9NanoPlatformBuilder) configPMC(
 
 func (b *R9NanoPlatformBuilder) setupPerfermanceTracing() {
 
-	if b.perfAnalysisFileName != "" {
-		b.perfAnalyzer = analysis.MakePerfAnalyzerBuilder().
-			WithPeriod(sim.VTimeInSec(b.perfAnalyzingPeriod)).
-			WithDBFilename(b.perfAnalysisFileName).
-			WithEngine(b.engine).
-			Build()
-	}
+	// if b.perfAnalysisFileName != "" {
+	// 	b.perfAnalyzer = analysis.MakePerfAnalyzerBuilder().
+	// 		WithPeriod(sim.VTimeInSec(b.perfAnalyzingPeriod)).
+	// 		WithDBFilename(b.perfAnalysisFileName).
+	// 		WithEngine(b.engine).
+	// 		Build()
+	// }
 }

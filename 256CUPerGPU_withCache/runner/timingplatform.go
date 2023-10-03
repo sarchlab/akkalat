@@ -181,7 +181,7 @@ func (b R9NanoPlatformBuilder) Build(numMemoryBank int) *Platform {
 		WithPageTable(pageTable).
 		WithLog2PageSize(b.log2PageSize).
 		WithGlobalStorage(b.globalStorage).
-		WithMemorySize(64 * mem.GB).
+		WithMemSize(64 * mem.GB).
 		Build("Driver")
 	// file, err := os.Create("driver_comm.csv")
 	// if err != nil {
@@ -451,11 +451,11 @@ func (b *R9NanoPlatformBuilder) configPMC(
 
 func (b *R9NanoPlatformBuilder) setupPerfermanceTracing() {
 
-	if b.perfAnalysisFileName != "" {
-		b.perfAnalyzer = analysis.MakePerfAnalyzerBuilder().
-			WithPeriod(sim.VTimeInSec(b.perfAnalyzingPeriod)).
-			WithDBFilename(b.perfAnalysisFileName).
-			WithEngine(b.engine).
-			Build()
-	}
+	// if b.perfAnalysisFileName != "" {
+	// 	// b.perfAnalyzer = analysis.MakePerfAnalyzerBuilder().
+	// 	// 	WithPeriod(sim.VTimeInSec(b.perfAnalyzingPeriod)).
+	// 	// 	WithDBFilename(b.perfAnalysisFileName).
+	// 	// 	WithEngine(b.engine).
+	// 	// 	Build()
+	// }
 }

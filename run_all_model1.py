@@ -4,77 +4,103 @@ from multiprocessing.pool import ThreadPool
 from datetime import datetime
 
 exps = [
-    ("32CUPerGPU_withoutCache", "aes", []),
-    ("32CUPerGPU_withoutCache", "atax", []),
-    ("32CUPerGPU_withoutCache", "bicg", []),
-    ("32CUPerGPU_withoutCache", "bitonicsort", []),
-    ("32CUPerGPU_withoutCache", "conv2d", []),
-    ("32CUPerGPU_withoutCache", "fastwalshtransform", []),
-    ("32CUPerGPU_withoutCache", "fir", []),
-    ("32CUPerGPU_withoutCache", "fft", []),
-    ("32CUPerGPU_withoutCache", "floydwarshall", []),
-    ("32CUPerGPU_withoutCache", "im2col", []),
-    ("32CUPerGPU_withoutCache", "kmeans", []),
-    ("32CUPerGPU_withoutCache", "matrixmultiplication", []),
-    ("32CUPerGPU_withoutCache", "matrixtranspose", []),
-    ("32CUPerGPU_withoutCache", "nbody", []),
-    ("32CUPerGPU_withoutCache", "nw", []),
-    ("32CUPerGPU_withoutCache", "pagerank", []),
-    ("32CUPerGPU_withoutCache", "relu", []),
-    ("32CUPerGPU_withoutCache", "simpleconvolution", []),
-    ("32CUPerGPU_withoutCache", "spmv", []),
-    ("32CUPerGPU_withoutCache", "stencil2d", []),
-    ("32CUPerGPU_withoutCache", "nbody", []),
-    ("32CUPerGPU_withoutCache", "nw", []),
-    ("32CUPerGPU_withoutCache", "pagerank", []),    
+    # ("32CUPerGPU_withoutCache", "atax", []),
+    # ("32CUPerGPU_withoutCache", "bicg", []),
+    # ("32CUPerGPU_withoutCache", "bitonicsort", []),
+    # ("32CUPerGPU_withoutCache", "fastwalshtransform", []),
+    # ("32CUPerGPU_withoutCache", "fir", []),
+    # ("32CUPerGPU_withoutCache", "fft", []),
+    # ("32CUPerGPU_withoutCache", "im2col", []),
+    # ("32CUPerGPU_withoutCache", "kmeans", []),
+    # ("32CUPerGPU_withoutCache", "matrixmultiplication", []),
+    # ("32CUPerGPU_withoutCache", "matrixtranspose", []),
+    # ("32CUPerGPU_withoutCache", "nbody", []),
+    # ("32CUPerGPU_withoutCache", "nw", []),
+    # ("32CUPerGPU_withoutCache", "pagerank", []),
+    # ("32CUPerGPU_withoutCache", "relu", []),
+    # ("32CUPerGPU_withoutCache", "spmv", []),
 
-    ("64CUPerGPU_withoutCache", "aes", []),
-    ("64CUPerGPU_withoutCache", "atax", []),
-    ("64CUPerGPU_withoutCache", "bicg", []),
-    ("64CUPerGPU_withoutCache", "bitonicsort", []),
-    ("64CUPerGPU_withoutCache", "conv2d", []),
-    ("64CUPerGPU_withoutCache", "fastwalshtransform", []),
-    ("64CUPerGPU_withoutCache", "fir", []),
-    ("64CUPerGPU_withoutCache", "fft", []),
-    ("64CUPerGPU_withoutCache", "floydwarshall", []),
-    ("64CUPerGPU_withoutCache", "im2col", []),
-    ("64CUPerGPU_withoutCache", "kmeans", []),
-    ("64CUPerGPU_withoutCache", "matrixmultiplication", []),
-    ("64CUPerGPU_withoutCache", "matrixtranspose", []),
-    ("64CUPerGPU_withoutCache", "nbody", []),
-    ("64CUPerGPU_withoutCache", "nw", []),
-    ("64CUPerGPU_withoutCache", "pagerank", []),
-    ("64CUPerGPU_withoutCache", "relu", []),
-    ("64CUPerGPU_withoutCache", "simpleconvolution", []),
-    ("64CUPerGPU_withoutCache", "spmv", []),
-    ("64CUPerGPU_withoutCache", "stencil2d", []),
-    ("64CUPerGPU_withoutCache", "nbody", []),
-    ("64CUPerGPU_withoutCache", "nw", []),
-    ("64CUPerGPU_withoutCache", "pagerank", []),   
+    # ("64CUPerGPU_withCache", "atax", [" -num-memory-banks=16 -bandwidth=96"]),
+    # ("64CUPerGPU_withCache", "bicg", [" -num-memory-banks=16 -bandwidth=96"]),
+    # ("64CUPerGPU_withCache", "bitonicsort", [" -num-memory-banks=16 -bandwidth=96"]),
+    # ("64CUPerGPU_withCache", "fastwalshtransform", [" -num-memory-banks=16 -bandwidth=96"]),
+    # ("64CUPerGPU_withCache", "fir", ["-analyzer-Name=firport -analyzer-period=1e-6"]),
+    # ("64CUPerGPU_withoutCache", "fft", []),
+    # ("64CUPerGPU_withoutCache", "im2col", []),
+    # ("64CUPerGPU_withCache", "kmeans", [" -num-memory-banks=16 -bandwidth=96"]),
+    # ("64CUPerGPU_withCache", "matrixmultiplication", [" -num-memory-banks=16 -bandwidth=96"]),
+    # ("64CUPerGPU_withCache", "matrixtranspose", [" -num-memory-banks=16 -bandwidth=96"]),
+    # ("64CUPerGPU_withoutCache", "nbody", []),
+    # ("64CUPerGPU_withoutCache", "nw", []),
+    # ("64CUPerGPU_withCache", "pagerank", [" -num-memory-banks=16 -bandwidth=96"]),
+    # ("64CUPerGPU_withCache", "relu", [" -num-memory-banks=16 -bandwidth=96"]),
+    # ("64CUPerGPU_withCache", "spmv", [" -num-memory-banks=16 -bandwidth=96"]), 
 
-    ("128CUPerGPU_withoutCache", "aes", []),
-    ("128CUPerGPU_withoutCache", "atax", []),
-    ("128CUPerGPU_withoutCache", "bicg", []),
-    ("128CUPerGPU_withoutCache", "bitonicsort", []),
-    ("128CUPerGPU_withoutCache", "conv2d", []),
-    ("128CUPerGPU_withoutCache", "fastwalshtransform", []),
-    ("128CUPerGPU_withoutCache", "fir", []),
-    ("128CUPerGPU_withoutCache", "fft", []),
-    ("128CUPerGPU_withoutCache", "floydwarshall", []),
-    ("128CUPerGPU_withoutCache", "im2col", []),
-    ("128CUPerGPU_withoutCache", "kmeans", []),
-    ("128CUPerGPU_withoutCache", "matrixmultiplication", []),
-    ("128CUPerGPU_withoutCache", "matrixtranspose", []),
-    ("128CUPerGPU_withoutCache", "nbody", []),
-    ("128CUPerGPU_withoutCache", "nw", []),
-    ("128CUPerGPU_withoutCache", "pagerank", []),
-    ("128CUPerGPU_withoutCache", "relu", []),
-    ("128CUPerGPU_withoutCache", "simpleconvolution", []),
-    ("128CUPerGPU_withoutCache", "spmv", []),
-    ("128CUPerGPU_withoutCache", "stencil2d", []),
-    ("128CUPerGPU_withoutCache", "nbody", []),
-    ("128CUPerGPU_withoutCache", "nw", []),
-    ("128CUPerGPU_withoutCache", "pagerank", [])   
+    # ("4CUPerGPU_withCache", "fft", [" -num-memory-banks=1 -bandwidth=6"]),
+    # ("4CUPerGPU_withCache", "matrixmultiplication", [" -num-memory-banks=1 -bandwidth=6"]),
+    # ("4CUPerGPU_withCache", "atax", [" -num-memory-banks=1 -bandwidth=6"]),
+    # ("4CUPerGPU_withCache", "bicg", ["-num-memory-banks=1 -bandwidth=6"]),
+    # ("4CUPerGPU_withCache", "bitonicsort", ["-num-memory-banks=1 -bandwidth=6"]), 
+    # ("4CUPerGPU_withCache", "kmeans", [" -num-memory-banks=1 -bandwidth=6"]),
+    # ("4CUPerGPU_withCache", "matrixmultiplication", [" -num-memory-banks=1 -bandwidth=6"]),
+    # ("4CUPerGPU_withCache", "spmv", [" -num-memory-banks=1 -bandwidth=6"]), 
+
+    # ("8CUPerGPU_withCache", "fft", [" -num-memory-banks=2 -bandwidth=12"]),
+    # ("8CUPerGPU_withCache", "matrixmultiplication", [" -num-memory-banks=2 -bandwidth=12"]),
+    # ("8CUPerGPU_withCache", "atax", [" -num-memory-banks=2 -bandwidth=12"]),
+    ("8CUPerGPU_withCache", "bicg", ["-num-memory-banks=2 -bandwidth=12"]),
+    ("8CUPerGPU_withCache", "bitonicsort", ["-num-memory-banks=2 -bandwidth=12"]), 
+    ("8CUPerGPU_withCache", "kmeans", [" -num-memory-banks=2 -bandwidth=12"]),
+    # ("8CUPerGPU_withCache", "matrixmultiplication", [" -num-memory-banks=2 -bandwidth=12"]),
+    # ("8CUPerGPU_withCache", "spmv", [" -num-memory-banks=2 -bandwidth=12"]), 
+
+    # ("16CUPerGPU_withCache", "fastwalshtransform", [" -num-memory-banks=4 -bandwidth=24"]),
+    # ("16CUPerGPU_withCache", "im2col", ["-num-memory-banks=4 -bandwidth=24 "]),
+    # ("8CUPerGPU_withCache", "im2col", ["-num-memory-banks=2 -bandwidth=12 "]),
+    # ("32CUPerGPU_withCache", "relu", ["-num-memory-banks=8 -bandwidth=48 "]),
+    # ("16CUPerGPU_withCache", "matrixtranspose", [" -num-memory-banks=4 -bandwidth=24"]),
+    # ("16CUPerGPU_withCache", "pagerank", [" -num-memory-banks=4 -bandwidth=24"]),
+    # ("16CUPerGPU_withCache", "relu", [" -num-memory-banks=4 -bandwidth=24"]), 
+
+    # ("32CUPerGPU_withCache", "fastwalshtransform", [" -num-memory-banks=8 -bandwidth=48"]),
+    # # ("64CUPerGPU_withCache", "im2col", [" -num-memory-banks=16 -bandwidth=96"]),
+    # ("32CUPerGPU_withCache", "matrixtranspose", [" -num-memory-banks=8 -bandwidth=48"]),
+    # # ("64CUPerGPU_withCache", "pagerank", [" -num-memory-banks=16 -bandwidth=96"]),
+    # # ("64CUPerGPU_withCache", "relu", [" -num-memory-banks=16 -bandwidth=96"]), 
+
+    # ("64CUPerGPU_withCache", "fastwalshtransform", [" -num-memory-banks=16 -bandwidth=96"]),
+    # ("64CUPerGPU_withCache", "im2col", [" -num-memory-banks=16 -bandwidth=96"]),
+    # ("64CUPerGPU_withCache", "matrixtranspose", [" -num-memory-banks=16 -bandwidth=96"]),
+    # ("64CUPerGPU_withCache", "pagerank", [" -num-memory-banks=16 -bandwidth=96"]),
+    # ("64CUPerGPU_withCache", "relu", [" -num-memory-banks=16 -bandwidth=96"]), 
+
+    # ("128CUPerGPU_withCache", "fastwalshtransform", [" -num-memory-banks=32 -bandwidth=192"]),
+    # ("128CUPerGPU_withCache", "im2col", ["-num-memory-banks=32 -bandwidth=192"]),
+    # ("128CUPerGPU_withCache", "matrixtranspose", ["-num-memory-banks=32 -bandwidth=192"]),
+    # ("128CUPerGPU_withCache", "pagerank", ["-num-memory-banks=32 -bandwidth=192"]),
+    # ("128CUPerGPU_withCache", "relu", ["-num-memory-banks=32 -bandwidth=192"]), 
+
+    # ("256CUPerGPU_withCache", "fastwalshtransform", [" -num-memory-banks=64 -bandwidth=384"]),
+    # ("256CUPerGPU_withCache", "im2col", [" -num-memory-banks=64 -bandwidth=384"]),
+    # ("256CUPerGPU_withCache", "matrixtranspose", [" -num-memory-banks=64 -bandwidth=384"]),
+    # ("256CUPerGPU_withCache", "pagerank", [" -num-memory-banks=64 -bandwidth=384"]),
+    # ("256CUPerGPU_withCache", "relu", [" -num-memory-banks=64 -bandwidth=384"]),
+
+     # ("256CUPerGPU_withCache", "atax", [" -num-memory-banks=64 -bandwidth=384"]),
+    # ("256CUPerGPU_withCache", "bicg", [" -num-memory-banks=64 -bandwidth=384"]),
+    # ("256CUPerGPU_withCache", "bitonicsort", [" -num-memory-banks=64 -bandwidth=384"]),
+    # ("256CUPerGPU_withCache", "fastwalshtransform", [" -num-memory-banks=64 -bandwidth=384"]),
+    # ("256CUPerGPU_withCache", "fir", [" -num-memory-banks=64 -bandwidth=384"]),
+    # ("256CUPerGPU_withCache", "fft", [" -num-memory-banks=64 -bandwidth=384"]),
+    # ("256CUPerGPU_withCache", "im2col", [" -num-memory-banks=64 -bandwidth=384"]),
+    # ("256CUPerGPU_withCache", "kmeans", [" -num-memory-banks=64 -bandwidth=384"]),
+    # ("256CUPerGPU_withCache", "matrixmultiplication", [" -num-memory-banks=64 -bandwidth=384"]),
+    # ("256CUPerGPU_withCache", "matrixtranspose", [" -num-memory-banks=64 -bandwidth=384"]),
+    # ("256CUPerGPU_withCache", "nbody", [" -num-memory-banks=64 -bandwidth=384"]),
+    # ("256CUPerGPU_withCache", "nw", [" -num-memory-banks=64 -bandwidth=384"]),
+    # ("256CUPerGPU_withCache", "pagerank", [" -num-memory-banks=64 -bandwidth=384"]),
+    # ("256CUPerGPU_withCache", "relu", [" -num-memory-banks=64 -bandwidth=384"]),
+    # ("256CUPerGPU_withCache", "spmv", [" -num-memory-banks=64 -bandwidth=384"]),
 ]
 
 output_dir = ""
@@ -84,9 +110,10 @@ def run_exp(exp):
     try:
         cwd = os.getcwd()
         file_name = f'{output_dir}/{exp[0]}_{exp[1]}_{"_".join(exp[2])}'
-        metic_file_name = file_name + '_metrics'
+        metic_file_name = file_name + ' _metrics'
         cmd = f"{cwd}/{exp[0]}/{exp[0]} -benchmark={exp[1]} -timing " + \
             "-magic-memory-copy -report-all " + \
+            " ".join(exp[2]) + " " + \
             f"-metric-file-name={metic_file_name} " + \
             " ".join(exp[2])
         print(cmd)
@@ -122,7 +149,7 @@ def run_exp(exp):
 
 def create_output_dir():
     global output_dir
-    output_dir = f'results/{datetime.now().strftime("%Y-%m-%d-%H-%M-%S")}'
+    output_dir = f'results/{datetime.now().strftime("%Y-%m-%d-%H-%M-%SignoreRDMA")}'
 
     if not os.path.exists('results'):
         os.makedirs('results')
@@ -136,18 +163,18 @@ def main():
 
     create_output_dir()
 
-    process = subprocess.Popen("cd model1 && go build", shell=True, cwd=cwd)
+    process = subprocess.Popen("cd 64CUPerGPU_withCache && go build", shell=True, cwd=cwd)
     process.wait()
 
-    process = subprocess.Popen(
-        "cd model1_separate_cache && go build", shell=True, cwd=cwd)
-    process.wait()
+    # process = subprocess.Popen(
+    #     "cd model1_separate_cache && go build", shell=True, cwd=cwd)
+    # process.wait()
 
-    process = subprocess.Popen("cd model2 && go build", shell=True, cwd=cwd)
-    process.wait()
+    # process = subprocess.Popen("cd model2 && go build", shell=True, cwd=cwd)
+    # process.wait()
 
-    process = subprocess.Popen("cd model3 && go build", shell=True, cwd=cwd)
-    process.wait()
+    # process = subprocess.Popen("cd model3 && go build", shell=True, cwd=cwd)
+    # process.wait()
 
     tp = ThreadPool(16)
     for exp in exps:
