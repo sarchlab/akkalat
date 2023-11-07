@@ -305,28 +305,28 @@ func (b *R9NanoGPUBuilder) connectL1ToL2() {
 		b.engine, b.freq)
 
 	b.rdmaEngine.SetLocalModuleFinder(lowModuleFinder)
-	l1ToL2Conn.PlugIn(b.rdmaEngine.ToL1, 64)
-	l1ToL2Conn.PlugIn(b.rdmaEngine.ToL2, 64)
+	l1ToL2Conn.PlugIn(b.rdmaEngine.ToL1, 1024)
+	l1ToL2Conn.PlugIn(b.rdmaEngine.ToL2, 1024)
 
 	for _, l2 := range b.l2Caches {
 		lowModuleFinder.LowModules = append(lowModuleFinder.LowModules,
 			l2.GetPortByName("Top"))
-		l1ToL2Conn.PlugIn(l2.GetPortByName("Top"), 64)
+		l1ToL2Conn.PlugIn(l2.GetPortByName("Top"), 64*16)
 	}
 
 	for _, l1v := range b.l1vCaches {
 		l1v.SetLowModuleFinder(lowModuleFinder)
-		l1ToL2Conn.PlugIn(l1v.GetPortByName("Bottom"), 16)
+		l1ToL2Conn.PlugIn(l1v.GetPortByName("Bottom"), 16*16)
 	}
 
 	for _, l1s := range b.l1sCaches {
 		l1s.SetLowModuleFinder(lowModuleFinder)
-		l1ToL2Conn.PlugIn(l1s.GetPortByName("Bottom"), 16)
+		l1ToL2Conn.PlugIn(l1s.GetPortByName("Bottom"), 16*16)
 	}
 
 	for _, l1iAT := range b.l1iAddrTrans {
 		l1iAT.SetLowModuleFinder(lowModuleFinder)
-		l1ToL2Conn.PlugIn(l1iAT.GetPortByName("Bottom"), 16)
+		l1ToL2Conn.PlugIn(l1iAT.GetPortByName("Bottom"), 16*16)
 	}
 }
 
@@ -338,45 +338,45 @@ func (b *R9NanoGPUBuilder) connectL2AndDRAM() {
 		1 << b.log2MemoryBankInterleavingSize)
 
 	for i, l2 := range b.l2Caches {
-		b.l2ToDramConnection.PlugIn(l2.GetPortByName("Bottom"), 64)
+		b.l2ToDramConnection.PlugIn(l2.GetPortByName("Bottom"), 64*16)
 		l2.SetLowModuleFinder(&mem.SingleLowModuleFinder{
 			LowModule: b.drams[i].GetPortByName("Top"),
 		})
 	}
 
 	for _, dram := range b.drams {
-		b.l2ToDramConnection.PlugIn(dram.GetPortByName("Top"), 64)
+		b.l2ToDramConnection.PlugIn(dram.GetPortByName("Top"), 64*16)
 		lowModuleFinder.LowModules = append(lowModuleFinder.LowModules,
 			dram.GetPortByName("Top"))
 	}
 
 	b.dmaEngine.SetLocalDataSource(lowModuleFinder)
-	b.l2ToDramConnection.PlugIn(b.dmaEngine.ToMem, 64)
+	b.l2ToDramConnection.PlugIn(b.dmaEngine.ToMem, 64*16)
 
 	b.pageMigrationController.MemCtrlFinder = lowModuleFinder
 	b.l2ToDramConnection.PlugIn(
-		b.pageMigrationController.GetPortByName("LocalMem"), 16)
+		b.pageMigrationController.GetPortByName("LocalMem"), 16*16)
 }
 
 func (b *R9NanoGPUBuilder) connectL1TLBToL2TLB() {
 	tlbConn := sim.NewDirectConnection(b.gpuName+".L1TLBtoL2TLB",
 		b.engine, b.freq)
 
-	tlbConn.PlugIn(b.l2TLBs[0].GetPortByName("Top"), 64)
+	tlbConn.PlugIn(b.l2TLBs[0].GetPortByName("Top"), 64*16)
 
 	for _, l1vTLB := range b.l1vTLBs {
 		l1vTLB.LowModule = b.l2TLBs[0].GetPortByName("Top")
-		tlbConn.PlugIn(l1vTLB.GetPortByName("Bottom"), 16)
+		tlbConn.PlugIn(l1vTLB.GetPortByName("Bottom"), 16*16)
 	}
 
 	for _, l1iTLB := range b.l1iTLBs {
 		l1iTLB.LowModule = b.l2TLBs[0].GetPortByName("Top")
-		tlbConn.PlugIn(l1iTLB.GetPortByName("Bottom"), 16)
+		tlbConn.PlugIn(l1iTLB.GetPortByName("Bottom"), 16*16)
 	}
 
 	for _, l1sTLB := range b.l1sTLBs {
 		l1sTLB.LowModule = b.l2TLBs[0].GetPortByName("Top")
-		tlbConn.PlugIn(l1sTLB.GetPortByName("Bottom"), 16)
+		tlbConn.PlugIn(l1sTLB.GetPortByName("Bottom"), 16*16)
 	}
 }
 
@@ -779,7 +779,7 @@ func (b *R9NanoGPUBuilder) buildRDMAEngine() {
 	name := fmt.Sprintf("%s.RDMA", b.gpuName)
 	b.rdmaEngine = rdma.MakeBuilder().
 		WithEngine(b.engine).
-		WithBufferSize(128).
+		WithBufferSize(1024).
 		WithFreq(b.freq).
 		WithLocalModules(b.lowModuleFinderForL1).
 		WithRemoteModules(nil).

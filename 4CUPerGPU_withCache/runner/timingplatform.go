@@ -183,7 +183,7 @@ func (b R9NanoPlatformBuilder) Build(numMemoryBank int) *Platform {
 		WithPageTable(pageTable).
 		WithLog2PageSize(b.log2PageSize).
 		WithGlobalStorage(b.globalStorage).
-		WithMemorySize(b.memorySize).
+		WithMemSize(b.memorySize).
 		Build("Driver")
 	// file, err := os.Create("driver_comm.csv")
 	// if err != nil {
@@ -457,7 +457,7 @@ func (b *R9NanoPlatformBuilder) setupPerfermanceTracing() {
 		b.perfAnalyzer = analysis.MakePerfAnalyzerBuilder().
 			WithPeriod(sim.VTimeInSec(b.perfAnalyzingPeriod)).
 			WithDBFilename(b.perfAnalysisFileName).
-			WithEngine(b.engine).
+			// WithEngine(b.engine).
 			Build()
 	}
 }

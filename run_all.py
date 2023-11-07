@@ -41,18 +41,65 @@ exps = [
     # ("4CUPerGPU_withCache", "atax", [" -num-memory-banks=1 -bandwidth=6"]),
     # ("4CUPerGPU_withCache", "bicg", ["-num-memory-banks=1 -bandwidth=6"]),
     # ("4CUPerGPU_withCache", "bitonicsort", ["-num-memory-banks=1 -bandwidth=6"]), 
-    ("4CUPerGPU_withCache", "kmeans", [" -num-memory-banks=1 -bandwidth=6"]),
-    ("4CUPerGPU_withCache", "matrixmultiplication", [" -num-memory-banks=1 -bandwidth=6"]),
-    ("4CUPerGPU_withCache", "spmv", [" -num-memory-banks=1 -bandwidth=6"]), 
+    # ("4CUPerGPU_withCache", "kmeans", [" -num-memory-banks=1 -bandwidth=6"]),
+    # ("4CUPerGPU_withCache", "matrixmultiplication", [" -num-memory-banks=1 -bandwidth=6"]),
+    # ("4CUPerGPU_withCache", "spmv", [" -num-memory-banks=1 -bandwidth=6"]), 
 
-    ("8CUPerGPU_withCache", "fft", [" -num-memory-banks=2 -bandwidth=12"]),
-    ("8CUPerGPU_withCache", "matrixmultiplication", [" -num-memory-banks=2 -bandwidth=12"]),
-    ("8CUPerGPU_withCache", "atax", [" -num-memory-banks=2 -bandwidth=12"]),
+    # ("8CUPerGPU_withCache", "fft", [" -num-memory-banks=2 -bandwidth=12"]),
+    # ("8CUPerGPU_withCache", "matrixmultiplication", [" -num-memory-banks=2 -bandwidth=12"]),
+    # ("8CUPerGPU_withCache", "atax", [" -num-memory-banks=2 -bandwidth=12"]),
     # ("8CUPerGPU_withCache", "bicg", ["-num-memory-banks=2 -bandwidth=12"]),
     # ("8CUPerGPU_withCache", "bitonicsort", ["-num-memory-banks=2 -bandwidth=12"]), 
     # ("8CUPerGPU_withCache", "kmeans", [" -num-memory-banks=2 -bandwidth=12"]),
     # ("8CUPerGPU_withCache", "matrixmultiplication", [" -num-memory-banks=2 -bandwidth=12"]),
     # ("8CUPerGPU_withCache", "spmv", [" -num-memory-banks=2 -bandwidth=12"]), 
+
+    # ("16CUPerGPU_withCache", "fft", [" -num-memory-banks=4 -bandwidth=24"]),
+    # ("16CUPerGPU_withCache", "matrixmultiplication", [" -num-memory-banks=4 -bandwidth=24"]),
+    # ("16CUPerGPU_withCache", "atax", [" -num-memory-banks=4 -bandwidth=24"]),
+    # ("16CUPerGPU_withCache", "bicg", ["-num-memory-banks=4 -bandwidth=24"]),
+    # ("16CUPerGPU_withCache", "bitonicsort", ["-num-memory-banks=4 -bandwidth=24"]), 
+    # ("16CUPerGPU_withCache", "kmeans", [" -num-memory-banks=4 -bandwidth=24"]),
+    # ("16CUPerGPU_withCache", "matrixmultiplication", [" -num-memory-banks=4 -bandwidth=24"]),
+    # ("16CUPerGPU_withCache", "spmv", [" -num-memory-banks=4 -bandwidth=24"]), 
+
+    # ("32CUPerGPU_withCache", "fft", [" -num-memory-banks=8 -bandwidth=48"]),
+    # ("32CUPerGPU_withCache", "matrixmultiplication", [" -num-memory-banks=8 -bandwidth=48"]),
+    # ("32CUPerGPU_withCache", "atax", [" -num-memory-banks=8 -bandwidth=48"]),
+    # ("32CUPerGPU_withCache", "bicg", ["-num-memory-banks=8 -bandwidth=48"]),
+    # ("32CUPerGPU_withCache", "bitonicsort", ["-num-memory-banks=8 -bandwidth=48"]), 
+    # ("32CUPerGPU_withCache", "kmeans", [" -num-memory-banks=8 -bandwidth=48"]),
+    # ("32CUPerGPU_withCache", "matrixmultiplication", [" -num-memory-banks=8 -bandwidth=48"]),
+    # ("32CUPerGPU_withCache", "spmv", [" -num-memory-banks=8 -bandwidth=48"]), 
+
+    # ("64CUPerGPU_withCache", "fft", [" -num-memory-banks=16 -bandwidth=96"]),
+    # ("64CUPerGPU_withCache", "im2col", [" -num-memory-banks=16 -bandwidth=96"]), 
+    # ("64CUPerGPU_withCache", "matrixmultiplication", [" -num-memory-banks=16 -bandwidth=96"]),
+    # ("64CUPerGPU_withCache", "atax", [" -num-memory-banks=16 -bandwidth=96"]),
+    # ("64CUPerGPU_withCache", "bicg", ["-num-memory-banks=16 -bandwidth=96"]),
+    # ("64CUPerGPU_withCache", "bitonicsort", ["-num-memory-banks=16 -bandwidth=96"]), 
+    # ("64CUPerGPU_withCache", "kmeans", [" -num-memory-banks=16 -bandwidth=96"]),
+    # ("64CUPerGPU_withCache", "matrixtranspose", [" -num-memory-banks=16 -bandwidth=96"]),
+    # ("64CUPerGPU_withCache", "spmv", [" -num-memory-banks=16 -bandwidth=96"]), 
+   
+
+    # ("128CUPerGPU_withCache", "fft", [" -num-memory-banks=32 -bandwidth=192"]),
+    # ("128CUPerGPU_withCache", "matrixmultiplication", [" -num-memory-banks=32 -bandwidth=192"]),
+    # ("128CUPerGPU_withCache", "atax", [" -num-memory-banks=32 -bandwidth=192"]),
+    # ("128CUPerGPU_withCache", "bicg", [" -num-memory-banks=32 -bandwidth=192"]),
+    # ("128CUPerGPU_withCache", "bitonicsort", [" -num-memory-banks=32 -bandwidth=192"]), 
+    # ("128CUPerGPU_withCache", "kmeans", [" -num-memory-banks=32 -bandwidth=192"]),
+    # ("128CUPerGPU_withCache", "matrixmultiplication", [" -num-memory-banks=32 -bandwidth=192"]),
+    # ("128CUPerGPU_withCache", "spmv", [" -num-memory-banks=32 -bandwidth=192"]), 
+
+    # ("256CUPerGPU_withCache", "fft", [" -num-memory-banks=64 -bandwidth=384"]),
+    # ("256CUPerGPU_withCache", "matrixmultiplication", [" -num-memory-banks=64 -bandwidth=384"]),
+    # ("256CUPerGPU_withCache", "atax", [" -num-memory-banks=64 -bandwidth=384"]),
+    # ("256CUPerGPU_withCache", "bicg", [" -num-memory-banks=64 -bandwidth=384"]),
+    # ("256CUPerGPU_withCache", "bitonicsort", [" -num-memory-banks=64 -bandwidth=384"]), 
+    # ("256CUPerGPU_withCache", "kmeans", [" -num-memory-banks=64 -bandwidth=384"]),
+    # ("256CUPerGPU_withCache", "matrixmultiplication", [" -num-memory-banks=64 -bandwidth=384"]),
+    # ("256CUPerGPU_withCache", "pagerank", [" -num-memory-banks=64 -bandwidth=384"]), 
 
     # ("16CUPerGPU_withCache", "fastwalshtransform", [" -num-memory-banks=4 -bandwidth=24"]),
     # ("16CUPerGPU_withCache", "im2col", ["-num-memory-banks=4 -bandwidth=24 "]),
@@ -101,6 +148,13 @@ exps = [
     # ("256CUPerGPU_withCache", "pagerank", [" -num-memory-banks=64 -bandwidth=384"]),
     # ("256CUPerGPU_withCache", "relu", [" -num-memory-banks=64 -bandwidth=384"]),
     # ("256CUPerGPU_withCache", "spmv", [" -num-memory-banks=64 -bandwidth=384"]),
+
+    # ("64CUPerGPU_withCache", "im2col", [" -num-memory-banks=16 -bandwidth=48"]),
+    ("64CUPerGPU_withCache", "im2col", [" -num-memory-banks=16 -bandwidth=2"]),
+    ("64CUPerGPU_withCache", "bicg", [" -num-memory-banks=16 -bandwidth=2"]),
+    ("64CUPerGPU_withCache", "fft", [" -num-memory-banks=16 -bandwidth=2"]),
+    # ("64CUPerGPU_withCache", "im2col", [" -num-memory-banks=16 -bandwidth=192"]),
+    # ("64CUPerGPU_withCache", "im2col", [" -num-memory-banks=16 -bandwidth=384"]),
 ]
 
 output_dir = ""
@@ -114,8 +168,8 @@ def run_exp(exp):
         cmd = f"{cwd}/{exp[0]}/{exp[0]} -benchmark={exp[1]} -timing " + \
             "-magic-memory-copy -report-all " + \
             " ".join(exp[2]) + " " + \
-            f"-metric-file-name={metic_file_name} " + \
-            " ".join(exp[2])
+            f"-metric-file-name={metic_file_name}" + \
+            "".join(exp[2])
         print(cmd)
 
         out_file_name = file_name+'_out.stdout'
@@ -149,7 +203,7 @@ def run_exp(exp):
 
 def create_output_dir():
     global output_dir
-    output_dir = f'results/{datetime.now().strftime("%Y-%m-%d-%H-%M-%SignoreRDMA")}'
+    output_dir = f'results/{datetime.now().strftime("%Y-%m-%d-%H-%M-%SExperiment2bd2")}'
 
     if not os.path.exists('results'):
         os.makedirs('results')
