@@ -70,6 +70,15 @@ var analyszerNameFlag = flag.String("analyzer-Name", "",
 	"The name of the analyzer to use.")
 var analyszerPeriodFlag = flag.Float64("analyzer-period", 0.0,
 	"The period to dump the analyzer results.")
+var visTracerDB = flag.String("trace-vis-db", "sqlite",
+	"The database to store the visualization trace. Possible values are "+
+		"sqlite, mysql, and csv.")
+var visTracerDBFileName = flag.String("trace-vis-db-file", "",
+	"The file name of the database to store the visualization trace. "+
+		"Extension names are not required. "+
+		"If not specified, a random file name will be used. "+
+		"This flag does not work with Mysql db. When MySQL is used, "+
+		"the database name is always randomly generated.")
 
 type verificationPreEnablingBenchmark interface {
 	benchmarks.Benchmark
@@ -559,17 +568,18 @@ func (r *Runner) addDRAMTracer() {
 }
 
 func (r *Runner) createUnifiedGPUs() {
-	// unifiedGPUID := r.platform.Driver.CreateUnifiedGPU(nil, []int{
-	// 	1, 2, 3, 4, 5, 8, 9, 10, 11, 15, 16, 17, 18, 22, 23, 24, 29, 30, 31, 32,
-	// 	// 3, 4, 5, 6, 7, 8,
-	// 	// 9, 10, 11, 12, 13, 14, 15, 16,
-	// 	// 17, 18, 19, 20, 21, 22, 23, 24,
-	// })
-	gpulist := make([]int, 48)
-	for i := 0; i < 48; i++ {
-		gpulist[i] = i + 1
-	}
-	unifiedGPUID := r.platform.Driver.CreateUnifiedGPU(nil, gpulist)
+	unifiedGPUID := r.platform.Driver.CreateUnifiedGPU(nil, []int{
+		1, 2, 3, 4, 5, 8, 9, 10, 11, 15, 16, 17, 18, 22, 23, 24, 29, 30, 31, 32,
+		// 4, 5, 8, 9, 10, 11, 15, 16, 17, 18, 22, 23, 24, 29, 30, 31, 32,
+		// 3, 4, 5, 6, 7, 8,
+		// 9, 10, 11, 12, 13, 14, 15, 16,
+		// 17, 18, 19, 20, 21, 22, 23, 24,
+	})
+	// gpulist := make([]int, 48)
+	// for i := 0; i < 48; i++ {
+	// 	gpulist[i] = i + 1
+	// }
+	// unifiedGPUID := r.platform.Driver.CreateUnifiedGPU(nil, gpulist)
 
 	r.GPUIDs = []int{unifiedGPUID}
 }

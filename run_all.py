@@ -2,6 +2,7 @@ import subprocess
 import os
 from multiprocessing.pool import ThreadPool
 from datetime import datetime
+import concurrent.futures
 
 exps = [
     # ("32CUPerGPU_withoutCache", "atax", []),
@@ -149,12 +150,22 @@ exps = [
     # ("256CUPerGPU_withCache", "relu", [" -num-memory-banks=64 -bandwidth=384"]),
     # ("256CUPerGPU_withCache", "spmv", [" -num-memory-banks=64 -bandwidth=384"]),
 
-    # ("64CUPerGPU_withCache", "im2col", [" -num-memory-banks=16 -bandwidth=48"]),
-    ("64CUPerGPU_withCache", "im2col", [" -num-memory-banks=16 -bandwidth=2"]),
-    ("64CUPerGPU_withCache", "bicg", [" -num-memory-banks=16 -bandwidth=2"]),
-    ("64CUPerGPU_withCache", "fft", [" -num-memory-banks=16 -bandwidth=2"]),
-    # ("64CUPerGPU_withCache", "im2col", [" -num-memory-banks=16 -bandwidth=192"]),
-    # ("64CUPerGPU_withCache", "im2col", [" -num-memory-banks=16 -bandwidth=384"]),
+    ("64CUPerGPU_withCache", "atax", [" -num-memory-banks=16 -bandwidth=96"]),
+    ("64CUPerGPU_withCache", "bicg", [" -num-memory-banks=16 -bandwidth=96"]),
+    ("64CUPerGPU_withCache", "bitonicsort", [" -num-memory-banks=16 -bandwidth=96"]),
+    ("64CUPerGPU_withCache", "fastwalshtransform", [" -num-memory-banks=16 -bandwidth=96"]),
+    ("64CUPerGPU_withCache", "fir", [" -num-memory-banks=16 -bandwidth=96"]),
+    ("64CUPerGPU_withCache", "fft", [" -num-memory-banks=16 -bandwidth=96"]),
+    ("64CUPerGPU_withCache", "im2col", [" -num-memory-banks=16 -bandwidth=96"]),
+    # ("64CUPerGPU_withCache", "kmeans", [" -num-memory-banks=16 -bandwidth=384"]),
+    ("64CUPerGPU_withCache", "matrixmultiplication", [" -num-memory-banks=16 -bandwidth=96"]),
+    ("64CUPerGPU_withCache", "matrixtranspose", [" -num-memory-banks=16 -bandwidth=96"]),
+    ("64CUPerGPU_withCache", "nbody", [" -num-memory-banks=16 -bandwidth=96"]),
+    ("64CUPerGPU_withCache", "nw", [" -num-memory-banks=16 -bandwidth=96"]),
+    ("64CUPerGPU_withCache", "pagerank", [" -num-memory-banks=16 -bandwidth=96"]),
+    ("64CUPerGPU_withCache", "relu", [" -num-memory-banks=16 -bandwidth=96"]),
+    ("64CUPerGPU_withCache", "spmv", [" -num-memory-banks=16 -bandwidth=96"]),
+
 ]
 
 output_dir = ""
@@ -203,7 +214,7 @@ def run_exp(exp):
 
 def create_output_dir():
     global output_dir
-    output_dir = f'results/{datetime.now().strftime("%Y-%m-%d-%H-%M-%SExperiment2bd2")}'
+    output_dir = f'results/{datetime.now().strftime("%Y-%m-%d-%H-%M-%SExperiment2GPMNew4x5")}'
 
     if not os.path.exists('results'):
         os.makedirs('results')
@@ -220,19 +231,11 @@ def main():
     process = subprocess.Popen("cd 64CUPerGPU_withCache && go build", shell=True, cwd=cwd)
     process.wait()
 
-    # process = subprocess.Popen(
-    #     "cd model1_separate_cache && go build", shell=True, cwd=cwd)
-    # process.wait()
+    with concurrent.futures.ThreadPoolExecutor(max_workers=3) as executor:
+        future = [executor.submit(run_exp, exp) for exp in exps]
 
-    # process = subprocess.Popen("cd model2 && go build", shell=True, cwd=cwd)
-    # process.wait()
-
-    # process = subprocess.Popen("cd model3 && go build", shell=True, cwd=cwd)
-    # process.wait()
-
-    tp = ThreadPool(16)
-    for exp in exps:
-        tp.apply_async(run_exp, args=(exp, ))
+        for future in concurrent.futures.as_completed(future):
+            print(future.result())
 
     tp.close()
     tp.join()

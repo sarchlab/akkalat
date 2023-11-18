@@ -274,11 +274,11 @@ func (b *R9NanoGPUBuilder) connectCP() {
 	b.internalConn.PlugIn(b.cp.ToCUs, 128)
 	b.internalConn.PlugIn(b.cp.ToTLBs, 128)
 	b.internalConn.PlugIn(b.cp.ToAddressTranslators, 128)
-	b.internalConn.PlugIn(b.cp.ToRDMA, 4)
-	b.internalConn.PlugIn(b.cp.ToPMC, 4)
+	b.internalConn.PlugIn(b.cp.ToRDMA, 1)
+	b.internalConn.PlugIn(b.cp.ToPMC, 1)
 
 	b.cp.RDMA = b.rdmaEngine.CtrlPort
-	b.internalConn.PlugIn(b.cp.RDMA, 1)
+	b.internalConn.PlugIn(b.cp.RDMA, 4)
 
 	b.cp.DMAEngine = b.dmaEngine.ToCP
 	b.internalConn.PlugIn(b.dmaEngine.ToCP, 1)
@@ -305,8 +305,8 @@ func (b *R9NanoGPUBuilder) connectL1ToL2() {
 		b.engine, b.freq)
 
 	b.rdmaEngine.SetLocalModuleFinder(lowModuleFinder)
-	l1ToL2Conn.PlugIn(b.rdmaEngine.ToL1, 64)
-	l1ToL2Conn.PlugIn(b.rdmaEngine.ToL2, 64)
+	l1ToL2Conn.PlugIn(b.rdmaEngine.ToL1, 1024)
+	l1ToL2Conn.PlugIn(b.rdmaEngine.ToL2, 1024)
 
 	for _, l2 := range b.l2Caches {
 		lowModuleFinder.LowModules = append(lowModuleFinder.LowModules,
@@ -559,10 +559,6 @@ func (b *R9NanoGPUBuilder) buildDRAMControllers() {
 		b.drams = append(b.drams, dram)
 		b.gpu.MemControllers = append(b.gpu.MemControllers, dram)
 
-		if b.enableVisTracing {
-			tracing.CollectTrace(dram, b.visTracer)
-		}
-
 		if b.enableMemTracing {
 			tracing.CollectTrace(dram, b.memTracer)
 		}
@@ -779,7 +775,7 @@ func (b *R9NanoGPUBuilder) buildRDMAEngine() {
 	name := fmt.Sprintf("%s.RDMA", b.gpuName)
 	b.rdmaEngine = rdma.MakeBuilder().
 		WithEngine(b.engine).
-		WithBufferSize(128).
+		WithBufferSize(1024).
 		WithFreq(b.freq).
 		WithLocalModules(b.lowModuleFinderForL1).
 		WithRemoteModules(nil).
