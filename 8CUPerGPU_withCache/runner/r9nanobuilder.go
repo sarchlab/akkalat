@@ -71,7 +71,7 @@ type R9NanoGPUBuilder struct {
 	lowModuleFinderForL2    *mem.InterleavedLowModuleFinder
 	lowModuleFinderForPMC   *mem.InterleavedLowModuleFinder
 	dmaEngine               *cp.DMAEngine
-	rdmaEngine              *rdma.Engine
+	rdmaEngine              *rdma.Comp
 	pageMigrationController *pagemigrationcontroller.PageMigrationController
 	globalStorage           *mem.Storage
 
@@ -274,11 +274,11 @@ func (b *R9NanoGPUBuilder) connectCP() {
 	b.internalConn.PlugIn(b.cp.ToCUs, 128)
 	b.internalConn.PlugIn(b.cp.ToTLBs, 128)
 	b.internalConn.PlugIn(b.cp.ToAddressTranslators, 128)
-	b.internalConn.PlugIn(b.cp.ToRDMA, 4)
+	b.internalConn.PlugIn(b.cp.ToRDMA, 40)
 	b.internalConn.PlugIn(b.cp.ToPMC, 4)
 
 	b.cp.RDMA = b.rdmaEngine.CtrlPort
-	b.internalConn.PlugIn(b.cp.RDMA, 1)
+	b.internalConn.PlugIn(b.cp.RDMA, 1024)
 
 	b.cp.DMAEngine = b.dmaEngine.ToCP
 	b.internalConn.PlugIn(b.dmaEngine.ToCP, 1)
@@ -305,8 +305,8 @@ func (b *R9NanoGPUBuilder) connectL1ToL2() {
 		b.engine, b.freq)
 
 	b.rdmaEngine.SetLocalModuleFinder(lowModuleFinder)
-	l1ToL2Conn.PlugIn(b.rdmaEngine.ToL1, 64)
-	l1ToL2Conn.PlugIn(b.rdmaEngine.ToL2, 64)
+	l1ToL2Conn.PlugIn(b.rdmaEngine.ToL1, 65536*4)
+	l1ToL2Conn.PlugIn(b.rdmaEngine.ToL2, 65536*4)
 
 	for _, l2 := range b.l2Caches {
 		lowModuleFinder.LowModules = append(lowModuleFinder.LowModules,
@@ -776,12 +776,14 @@ func (b *R9NanoGPUBuilder) populateInstMemoryHierarchy(sa *shaderArray) {
 }
 
 func (b *R9NanoGPUBuilder) buildRDMAEngine() {
-	b.rdmaEngine = rdma.NewEngine(
-		fmt.Sprintf("%s.RDMA", b.gpuName),
-		b.engine,
-		b.lowModuleFinderForL1,
-		nil,
-	)
+	name := fmt.Sprintf("%s.RDMA", b.gpuName)
+	b.rdmaEngine = rdma.MakeBuilder().
+		WithEngine(b.engine).
+		WithBufferSize(102400).
+		WithFreq(b.freq).
+		WithLocalModules(b.lowModuleFinderForL1).
+		WithRemoteModules(nil).
+		Build(name)
 	b.gpu.RDMAEngine = b.rdmaEngine
 
 	if b.monitor != nil {

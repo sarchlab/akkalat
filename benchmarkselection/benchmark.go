@@ -30,7 +30,7 @@ func SelectBenchmark(name string, driver *driver.Driver) benchmarks.Benchmark {
 	switch name {
 	case "aes":
 		aes := aes.NewBenchmark(driver)
-		aes.Length = 10485760 * 5
+		aes.Length = 1048576
 		benchmark = aes
 	case "atax":
 		atax := atax.NewBenchmark(driver)
@@ -44,7 +44,7 @@ func SelectBenchmark(name string, driver *driver.Driver) benchmarks.Benchmark {
 		benchmark = bicg
 	case "bitonicsort":
 		bitonicsort := bitonicsort.NewBenchmark(driver)
-		bitonicsort.Length = 655360
+		bitonicsort.Length = 65536 * 8 * 16
 		benchmark = bitonicsort
 	case "conv2d":
 		conv2d := conv2d.NewBenchmark(driver)
@@ -62,21 +62,21 @@ func SelectBenchmark(name string, driver *driver.Driver) benchmarks.Benchmark {
 		benchmark = conv2d
 	case "fastwalshtransform":
 		fastwalshtransform := fastwalshtransform.NewBenchmark(driver)
-		fastwalshtransform.Length = 1048576 * 4
+		fastwalshtransform.Length = 1048576 * 16 * 2
 		benchmark = fastwalshtransform
 	case "fir":
 		fir := fir.NewBenchmark(driver)
-		fir.Length = 10485760
+		fir.Length = 1048576 * 16
 		// fir.Length = 4096
 		benchmark = fir
 	case "fft":
 		fft := fft.NewBenchmark(driver)
-		fft.Bytes = 128
+		fft.Bytes = 128 * 8
 		fft.Passes = 2
 		benchmark = fft
 	case "floydwarshall":
 		floydwarshall := floydwarshall.NewBenchmark(driver)
-		floydwarshall.NumNodes = 1024
+		floydwarshall.NumNodes = 1024 * 4
 		floydwarshall.NumIterations = 1024
 		benchmark = floydwarshall
 	case "im2col":
@@ -96,39 +96,40 @@ func SelectBenchmark(name string, driver *driver.Driver) benchmarks.Benchmark {
 		benchmark = im2col
 	case "kmeans":
 		kmeans := kmeans.NewBenchmark(driver)
-		kmeans.NumPoints = 1048576
+		kmeans.NumPoints = 1048576 * 4
 		kmeans.NumClusters = 8
 		kmeans.NumFeatures = 32
 		kmeans.MaxIter = 3
 		benchmark = kmeans
 	case "matrixmultiplication":
 		matrixmultiplication := matrixmultiplication.NewBenchmark(driver)
-		matrixmultiplication.X = 2048
-		matrixmultiplication.Y = 2048
-		matrixmultiplication.Z = 2048
+		matrixmultiplication.X = 2048 * 4
+		matrixmultiplication.Y = 2048 * 4
+		matrixmultiplication.Z = 2048 * 4
 		benchmark = matrixmultiplication
 	case "matrixtranspose":
 		matrixtranspose := matrixtranspose.NewBenchmark(driver)
-		matrixtranspose.Width = 4096
+		matrixtranspose.Width = 4096 * 4
 		benchmark = matrixtranspose
 	case "nbody":
 		nbody := nbody.NewBenchmark(driver)
-		nbody.NumParticles = 104857600
+		nbody.NumParticles = 104857600 * 4
 		nbody.NumIterations = 1024
 		benchmark = nbody
 	case "nw":
 		nw := nw.NewBenchmark(driver)
-		nw.SetLength(8192)
+		nw.SetLength(8192 * 2)
 		benchmark = nw
 	case "pagerank":
 		pagerank := pagerank.NewBenchmark(driver)
-		pagerank.NumNodes = 262144 / 16
-		pagerank.NumConnections = 1048576 / 16
+		pagerank.NumNodes = 262144
+		pagerank.NumConnections = 1048576
+		///16
 		pagerank.MaxIterations = 3
 		benchmark = pagerank
 	case "relu":
 		relu := relu.NewBenchmark(driver)
-		relu.Length = 10485760
+		relu.Length = 1048576 * 4
 		benchmark = relu
 	case "simpleconvolution":
 		simpleconvolution := simpleconvolution.NewBenchmark(driver)
@@ -138,13 +139,13 @@ func SelectBenchmark(name string, driver *driver.Driver) benchmarks.Benchmark {
 		benchmark = simpleconvolution
 	case "spmv":
 		spmv := spmv.NewBenchmark(driver)
-		spmv.Dim = 10485760
+		spmv.Dim = 1048576 * 8
 		spmv.Sparsity = 0.000000001
 		benchmark = spmv
 	case "stencil2d":
 		stencil2d := stencil2d.NewBenchmark(driver)
-		stencil2d.NumRows = 4096
-		stencil2d.NumCols = 4096
+		stencil2d.NumRows = 4096 * 2
+		stencil2d.NumCols = 4096 * 2
 		stencil2d.NumIteration = 3
 		benchmark = stencil2d
 	default:

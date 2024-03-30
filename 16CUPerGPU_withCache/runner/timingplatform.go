@@ -181,7 +181,7 @@ func (b R9NanoPlatformBuilder) Build(numMemoryBank int) *Platform {
 		WithPageTable(pageTable).
 		WithLog2PageSize(b.log2PageSize).
 		WithGlobalStorage(b.globalStorage).
-		WithMemorySize(4 * mem.GB).
+		WithMemSize(4 * mem.GB).
 		Build("Driver")
 	// file, err := os.Create("driver_comm.csv")
 	// if err != nil {

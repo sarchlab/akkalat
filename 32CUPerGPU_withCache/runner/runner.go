@@ -70,6 +70,15 @@ var analyszerNameFlag = flag.String("analyzer-Name", "",
 	"The name of the analyzer to use.")
 var analyszerPeriodFlag = flag.Float64("analyzer-period", 0.0,
 	"The period to dump the analyzer results.")
+var visTracerDB = flag.String("trace-vis-db", "sqlite",
+	"The database to store the visualization trace. Possible values are "+
+		"sqlite, mysql, and csv.")
+var visTracerDBFileName = flag.String("trace-vis-db-file", "",
+	"The file name of the database to store the visualization trace. "+
+		"Extension names are not required. "+
+		"If not specified, a random file name will be used. "+
+		"This flag does not work with Mysql db. When MySQL is used, "+
+		"the database name is always randomly generated.")
 
 type verificationPreEnablingBenchmark interface {
 	benchmarks.Benchmark
@@ -105,7 +114,7 @@ type dramTransactionCountTracer struct {
 type rdmaTransactionCountTracer struct {
 	outgoingTracer *tracing.AverageTimeTracer
 	incomingTracer *tracing.AverageTimeTracer
-	rdmaEngine     *rdma.Engine
+	rdmaEngine     *rdma.Comp
 }
 
 // Runner is a class that helps running the benchmarks in the official samples.
@@ -315,7 +324,7 @@ func (*Runner) setAnalyszer(
 	}
 
 	if *analyszerNameFlag != "" {
-		*analyszerNameFlag = fmt.Sprintf("%s%s", *analyszerNameFlag, ".csv")
+		*analyszerNameFlag = fmt.Sprintf(*analyszerNameFlag)
 		b = b.WithPerfAnalyzer(
 			*analyszerNameFlag,
 			*analyszerPeriodFlag,
@@ -564,14 +573,13 @@ func (r *Runner) createUnifiedGPUs() {
 	// 	9, 10, 11, 12, 13, 14, 15, 16,
 	// 	17, 18, 19, 20, 21, 22, 23, 24,
 	// })
-	gpulist := make([]int, 48)
-	for i := 0; i < 48; i++ {
+	gpulist := make([]int, 80)
+	for i := 0; i < 80; i++ {
 		gpulist[i] = i + 1
 	}
 	unifiedGPUID := r.platform.Driver.CreateUnifiedGPU(nil, gpulist)
 
 	r.GPUIDs = []int{unifiedGPUID}
-	// r.GPUIDs = []int{unifiedGPUID}
 }
 
 func (r *Runner) gpuIDStringToList(gpuIDsString string) []int {

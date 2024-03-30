@@ -13,11 +13,11 @@
 			"justMyCode": true
 		},
 		{
-			"name": "FIR-8CUPerGPU_withoutCache",
+			"name": "FIR-32CUPerGPU_withCache",
 			"type": "go",
 			"request": "launch",
 			"mode": "auto",
-			"program": "${workspaceFolder}/256CUPerGPU_withCache",
+			"program": "${workspaceFolder}/32CUPerGPU_withCache",
 			"args": [
 				"-timing",
 				"-magic-memory-copy",
@@ -31,12 +31,14 @@
 			"type": "go",
 			"request": "launch",
 			"mode": "auto",
-			"program": "/Users/daoxuanxu/GPU_simulator/src/akkalat/4CUPerGPU_withCache",
+			"program": "${workspaceFolder}/64CUPerGPU_withCache",
 			"args": [
 				"-timing",
 				"-magic-memory-copy",
 				"-benchmark=fastwalshtransform",
 				"-report-all",
+				"-analyzer-Name=test",
+				"-analyzer-period=1e-7",
 			],
 			// "envFile": "${workspaceFolder}/../.env",
 		},
@@ -66,6 +68,22 @@
 				"-benchmark=pagerank",
 				"-report-all",
 			]
+		},
+		{
+			"name": "simpleMesh Debuger BitonicSort",
+			"type": "go",
+			"request": "launch",
+			"mode": "auto",
+			"program": "${workspaceFolder}/simpleMesh",
+			"args": [
+				"-timing",
+				"-magic-memory-copy",
+				"-benchmark=bitonicsort",
+				"-report-all",
+				"-bandwidth=960"
+				// "-num-memory-banks=16"
+			],
+			// "envFile": "${workspaceFolder}/../.env",
 		}
 	]
 }

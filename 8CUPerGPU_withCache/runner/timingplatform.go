@@ -183,14 +183,8 @@ func (b R9NanoPlatformBuilder) Build(numMemoryBank int) *Platform {
 		WithPageTable(pageTable).
 		WithLog2PageSize(b.log2PageSize).
 		WithGlobalStorage(b.globalStorage).
-		WithMemorySize(b.memorySize).
+		WithMemSize(b.memorySize).
 		Build("Driver")
-	// file, err := os.Create("driver_comm.csv")
-	// if err != nil {
-	// 	panic(err)
-	// }
-	// gpuDriver.GetPortByName("GPU").AcceptHook(
-	// 	sim.NewPortMsgLogger(log.New(file, "", 0)))
 
 	if b.monitor != nil {
 		b.monitor.RegisterComponent(gpuDriver)

@@ -164,7 +164,7 @@ func (b R9NanoPlatformBuilder) Build(numMemoryBank int) *Platform {
 		b.monitor.RegisterEngine(b.engine)
 	}
 
-	// b.createVisTracer()
+	b.setupVisTracing()
 	b.setupPerfermanceTracing()
 
 	numGPU := b.tileWidth*b.tileHeight - 1
@@ -181,7 +181,7 @@ func (b R9NanoPlatformBuilder) Build(numMemoryBank int) *Platform {
 		WithPageTable(pageTable).
 		WithLog2PageSize(b.log2PageSize).
 		WithGlobalStorage(b.globalStorage).
-		WithMemorySize(8 * mem.GB).
+		WithMemSize(8 * mem.GB).
 		Build("Driver")
 	// file, err := os.Create("driver_comm.csv")
 	// if err != nil {
@@ -217,18 +217,37 @@ func (b R9NanoPlatformBuilder) Build(numMemoryBank int) *Platform {
 	}
 }
 
-// func (b *R9NanoPlatformBuilder) createVisTracer() {
-// 	if !b.traceVis {
-// 		return
-// 	}
+func (b *R9NanoPlatformBuilder) setupVisTracing() {
+	if !b.traceVis {
+		return
+	}
 
-// 	tracer := tracing.NewMySQLTracerWithTimeRange(
-// 		b.engine,
-// 		b.visTraceStartTime,
-// 		b.visTraceEndTime)
-// 	tracer.Init()
-// 	b.visTracer = tracer
-// }
+	var backend tracing.TracerBackend
+	switch *visTracerDB {
+	case "sqlite":
+		be := tracing.NewSQLiteTraceWriter(*visTracerDBFileName)
+		be.Init()
+		backend = be
+	case "csv":
+		be := tracing.NewCSVTraceWriter(*visTracerDBFileName)
+		be.Init()
+		backend = be
+	case "mysql":
+		be := tracing.NewMySQLTraceWriter()
+		be.Init()
+		backend = be
+	default:
+		panic(fmt.Sprintf(
+			"Tracer database type must be [sqlite|csv|mysql]. "+
+				"Provided value %s is not supported.",
+			*visTracerDB))
+	}
+
+	visTracer := tracing.NewDBTracer(b.engine, backend)
+	visTracer.SetTimeRange(b.visTraceStartTime, b.visTraceEndTime)
+
+	b.visTracer = visTracer
+}
 
 func (b *R9NanoPlatformBuilder) createGPUs(
 	connector *mesh.Connector,

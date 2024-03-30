@@ -305,8 +305,8 @@ func (b *R9NanoGPUBuilder) connectL1ToL2() {
 		b.engine, b.freq)
 
 	b.rdmaEngine.SetLocalModuleFinder(lowModuleFinder)
-	l1ToL2Conn.PlugIn(b.rdmaEngine.ToL1, 1024)
-	l1ToL2Conn.PlugIn(b.rdmaEngine.ToL2, 1024)
+	l1ToL2Conn.PlugIn(b.rdmaEngine.ToL1, 65536*8)
+	l1ToL2Conn.PlugIn(b.rdmaEngine.ToL2, 65536*8)
 
 	for _, l2 := range b.l2Caches {
 		lowModuleFinder.LowModules = append(lowModuleFinder.LowModules,

@@ -324,7 +324,7 @@ func (*Runner) setAnalyszer(
 	}
 
 	if *analyszerNameFlag != "" {
-		*analyszerNameFlag = fmt.Sprintf("%s%s", *analyszerNameFlag, ".csv")
+		*analyszerNameFlag = fmt.Sprintf(*analyszerNameFlag)
 		b = b.WithPerfAnalyzer(
 			*analyszerNameFlag,
 			*analyszerPeriodFlag,
@@ -568,18 +568,11 @@ func (r *Runner) addDRAMTracer() {
 }
 
 func (r *Runner) createUnifiedGPUs() {
-	unifiedGPUID := r.platform.Driver.CreateUnifiedGPU(nil, []int{
-		1, 2, 3, 4, 5, 8, 9, 10, 11, 15, 16, 17, 18, 22, 23, 24, 29, 30, 31, 32,
-		// 4, 5, 8, 9, 10, 11, 15, 16, 17, 18, 22, 23, 24, 29, 30, 31, 32,
-		// 3, 4, 5, 6, 7, 8,
-		// 9, 10, 11, 12, 13, 14, 15, 16,
-		// 17, 18, 19, 20, 21, 22, 23, 24,
-	})
-	// gpulist := make([]int, 48)
-	// for i := 0; i < 48; i++ {
-	// 	gpulist[i] = i + 1
-	// }
-	// unifiedGPUID := r.platform.Driver.CreateUnifiedGPU(nil, gpulist)
+	gpulist := make([]int, 48)
+	for i := 0; i < 48; i++ {
+		gpulist[i] = i + 1
+	}
+	unifiedGPUID := r.platform.Driver.CreateUnifiedGPU(nil, gpulist)
 
 	r.GPUIDs = []int{unifiedGPUID}
 }

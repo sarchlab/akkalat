@@ -305,8 +305,8 @@ func (b *R9NanoGPUBuilder) connectL1ToL2() {
 		b.engine, b.freq)
 
 	b.rdmaEngine.SetLocalModuleFinder(lowModuleFinder)
-	l1ToL2Conn.PlugIn(b.rdmaEngine.ToL1, 1024)
-	l1ToL2Conn.PlugIn(b.rdmaEngine.ToL2, 1024)
+	l1ToL2Conn.PlugIn(b.rdmaEngine.ToL1, 65536)
+	l1ToL2Conn.PlugIn(b.rdmaEngine.ToL2, 65536)
 
 	for _, l2 := range b.l2Caches {
 		lowModuleFinder.LowModules = append(lowModuleFinder.LowModules,
@@ -567,9 +567,9 @@ func (b *R9NanoGPUBuilder) buildDRAMControllers() {
 			b.monitor.RegisterComponent(dram)
 		}
 
-		if b.perfAnalyzer != nil {
-			b.perfAnalyzer.RegisterComponent(dram)
-		}
+		// if b.perfAnalyzer != nil {
+		// 	b.perfAnalyzer.RegisterComponent(dram)
+		// }
 	}
 }
 
@@ -661,9 +661,9 @@ func (b *R9NanoGPUBuilder) populateCUs(sa *shaderArray) {
 			b.monitor.RegisterComponent(cu)
 		}
 
-		if b.perfAnalyzer != nil {
-			b.perfAnalyzer.RegisterComponent(cu)
-		}
+		// if b.perfAnalyzer != nil {
+		// 	b.perfAnalyzer.RegisterComponent(cu)
+		// }
 	}
 }
 
@@ -675,9 +675,9 @@ func (b *R9NanoGPUBuilder) populateROBs(sa *shaderArray) {
 			b.monitor.RegisterComponent(rob)
 		}
 
-		if b.perfAnalyzer != nil {
-			b.perfAnalyzer.RegisterComponent(rob)
-		}
+		// if b.perfAnalyzer != nil {
+		// 	b.perfAnalyzer.RegisterComponent(rob)
+		// }
 	}
 }
 
@@ -690,9 +690,9 @@ func (b *R9NanoGPUBuilder) populateTLBs(sa *shaderArray) {
 			b.monitor.RegisterComponent(tlb)
 		}
 
-		if b.perfAnalyzer != nil {
-			b.perfAnalyzer.RegisterComponent(tlb)
-		}
+		// if b.perfAnalyzer != nil {
+		// 	b.perfAnalyzer.RegisterComponent(tlb)
+		// }
 	}
 }
 
@@ -719,9 +719,9 @@ func (b *R9NanoGPUBuilder) populateL1VAddressTranslators(sa *shaderArray) {
 			b.monitor.RegisterComponent(at)
 		}
 
-		if b.perfAnalyzer != nil {
-			b.perfAnalyzer.RegisterComponent(at)
-		}
+		// if b.perfAnalyzer != nil {
+		// 	b.perfAnalyzer.RegisterComponent(at)
+		// }
 	}
 }
 
@@ -741,10 +741,10 @@ func (b *R9NanoGPUBuilder) populateScalerMemoryHierarchy(sa *shaderArray) {
 	}
 
 	if b.perfAnalyzer != nil {
-		b.perfAnalyzer.RegisterComponent(sa.l1sAT)
-		b.perfAnalyzer.RegisterComponent(sa.l1sROB)
+		// b.perfAnalyzer.RegisterComponent(sa.l1sAT)
+		// b.perfAnalyzer.RegisterComponent(sa.l1sROB)
 		b.perfAnalyzer.RegisterComponent(sa.l1sCache)
-		b.perfAnalyzer.RegisterComponent(sa.l1sTLB)
+		// b.perfAnalyzer.RegisterComponent(sa.l1sTLB)
 	}
 }
 
@@ -757,17 +757,17 @@ func (b *R9NanoGPUBuilder) populateInstMemoryHierarchy(sa *shaderArray) {
 	b.gpu.L1ITLBs = append(b.gpu.L1ITLBs, sa.l1iTLB)
 
 	if b.monitor != nil {
-		b.monitor.RegisterComponent(sa.l1iAT)
-		b.monitor.RegisterComponent(sa.l1iROB)
+		// b.monitor.RegisterComponent(sa.l1iAT)
+		// b.monitor.RegisterComponent(sa.l1iROB)
 		b.monitor.RegisterComponent(sa.l1iCache)
-		b.monitor.RegisterComponent(sa.l1iTLB)
+		// b.monitor.RegisterComponent(sa.l1iTLB)
 	}
 
 	if b.perfAnalyzer != nil {
-		b.perfAnalyzer.RegisterComponent(sa.l1iAT)
-		b.perfAnalyzer.RegisterComponent(sa.l1iROB)
+		// b.perfAnalyzer.RegisterComponent(sa.l1iAT)
+		// b.perfAnalyzer.RegisterComponent(sa.l1iROB)
 		b.perfAnalyzer.RegisterComponent(sa.l1iCache)
-		b.perfAnalyzer.RegisterComponent(sa.l1iTLB)
+		// b.perfAnalyzer.RegisterComponent(sa.l1iTLB)
 	}
 }
 
@@ -813,9 +813,9 @@ func (b *R9NanoGPUBuilder) buildPageMigrationController() {
 		tracing.CollectTrace(b.pageMigrationController, b.visTracer)
 	}
 
-	if b.perfAnalyzer != nil {
-		b.perfAnalyzer.RegisterComponent(b.pageMigrationController)
-	}
+	// if b.perfAnalyzer != nil {
+	// 	b.perfAnalyzer.RegisterComponent(b.pageMigrationController)
+	// }
 }
 
 func (b *R9NanoGPUBuilder) buildDMAEngine() {
@@ -832,9 +832,9 @@ func (b *R9NanoGPUBuilder) buildDMAEngine() {
 		b.monitor.RegisterComponent(b.dmaEngine)
 	}
 
-	if b.perfAnalyzer != nil {
-		b.perfAnalyzer.RegisterComponent(b.dmaEngine)
-	}
+	// if b.perfAnalyzer != nil {
+	// 	b.perfAnalyzer.RegisterComponent(b.dmaEngine)
+	// }
 }
 
 func (b *R9NanoGPUBuilder) buildCP() {
@@ -844,9 +844,9 @@ func (b *R9NanoGPUBuilder) buildCP() {
 		WithMonitor(b.monitor).
 		WithPerfAnalyzer(b.perfAnalyzer)
 
-	if b.enableVisTracing {
-		builder = builder.WithVisTracer(b.visTracer)
-	}
+	// if b.enableVisTracing {
+	// 	builder = builder.WithVisTracer(b.visTracer)
+	// }
 
 	b.cp = builder.Build(b.gpuName + ".CommandProcessor")
 	b.gpu.CommandProcessor = b.cp
@@ -884,9 +884,9 @@ func (b *R9NanoGPUBuilder) buildL2TLB() {
 		b.monitor.RegisterComponent(l2TLB)
 	}
 
-	if b.perfAnalyzer != nil {
-		b.perfAnalyzer.RegisterComponent(l2TLB)
-	}
+	// if b.perfAnalyzer != nil {
+	// 	b.perfAnalyzer.RegisterComponent(l2TLB)
+	// }
 }
 
 func (b *R9NanoGPUBuilder) numCU() int {
