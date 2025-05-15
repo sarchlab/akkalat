@@ -1,13 +1,13 @@
 package gpuArch
 
 import (
-	"github.com/sarchlab/akita/v3/analysis"
-	"github.com/sarchlab/akita/v3/mem/mem"
-	"github.com/sarchlab/akita/v3/mem/vm"
-	"github.com/sarchlab/akita/v3/mem/vm/mmu"
-	"github.com/sarchlab/akita/v3/monitoring"
-	"github.com/sarchlab/akita/v3/sim"
-	"github.com/sarchlab/akita/v3/tracing"
+	"github.com/sarchlab/akita/v4/analysis"
+	"github.com/sarchlab/akita/v4/mem/mem"
+	"github.com/sarchlab/akita/v4/mem/vm"
+	"github.com/sarchlab/akita/v4/mem/vm/mmu"
+	"github.com/sarchlab/akita/v4/monitoring"
+	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v4/tracing"
 )
 
 // WithEngine sets the engine that the GPU use.
@@ -32,7 +32,7 @@ func (b R9NanoGPUBuilder) WithMemAddrOffset(
 
 // WithMMU sets the MMU component that provides the address translation service
 // for the GPU.
-func (b R9NanoGPUBuilder) WithMMU(mmu *mmu.MMU) R9NanoGPUBuilder {
+func (b R9NanoGPUBuilder) WithMMU(mmu *mmu.Comp) R9NanoGPUBuilder {
 	b.mmu = mmu
 	return b
 }

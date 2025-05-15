@@ -5,18 +5,19 @@ import (
 	"log"
 	"os"
 
-	memtraces "github.com/sarchlab/akita/v3/mem/trace"
+	"github.com/sarchlab/akita/v4/datarecording"
+	memtraces "github.com/sarchlab/akita/v4/mem/trace"
 	"github.com/sarchlab/akkalat/32CU7x7GMMU/runner/gpuArch"
 
-	"github.com/sarchlab/akita/v3/analysis"
-	"github.com/sarchlab/akita/v3/mem/mem"
-	"github.com/sarchlab/akita/v3/mem/vm"
-	"github.com/sarchlab/akita/v3/mem/vm/mmu"
-	"github.com/sarchlab/akita/v3/monitoring"
-	mesh "github.com/sarchlab/akita/v3/noc/networking/mesh"
-	"github.com/sarchlab/akita/v3/sim"
-	"github.com/sarchlab/akita/v3/tracing"
-	"github.com/sarchlab/mgpusim/v3/driver"
+	"github.com/sarchlab/akita/v4/analysis"
+	"github.com/sarchlab/akita/v4/mem/mem"
+	"github.com/sarchlab/akita/v4/mem/vm"
+	"github.com/sarchlab/akita/v4/mem/vm/mmu"
+	"github.com/sarchlab/akita/v4/monitoring"
+	mesh "github.com/sarchlab/akita/v4/noc/networking/mesh"
+	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/mgpusim/v4/amd/driver"
 )
 
 // R9NanoPlatformBuilder can build a platform that equips R9Nano GPU.
@@ -92,8 +93,10 @@ func (b R9NanoPlatformBuilder) Build(numMemoryBank int) *gpuArch.Platform {
 		WithPageTable(pageTable).
 		WithLog2PageSize(b.log2PageSize).
 		WithGlobalStorage(b.globalStorage).
-		WithMemorySize(8 * mem.GB).
+		WithD2HCycles(8500).
+		WithH2DCycles(14500).
 		Build("Driver")
+
 	// file, err := os.Create("driver_comm.csv")
 	// if err != nil {
 	// 	panic(err)
@@ -107,7 +110,7 @@ func (b R9NanoPlatformBuilder) Build(numMemoryBank int) *gpuArch.Platform {
 
 	connector := b.createConnection(b.engine, gpuDriver, mmuComponent)
 	gpuBuilder := b.createGPUBuilder(b.engine, gpuDriver, mmuComponent, numMemoryBank, pageTable)
-	mmuComponent.MigrationServiceProvider = gpuDriver.GetPortByName("MMU")
+	mmuComponent.MigrationServiceProvider = gpuDriver.GetPortByName("MMU").AsRemote()
 
 	rdmaAddressTable := b.createRDMAAddrTable()
 	pmcAddressTable := b.createPMCPageTable()
@@ -135,28 +138,8 @@ func (b *R9NanoPlatformBuilder) setupVisTracing() {
 		return
 	}
 
-	var backend tracing.TracerBackend
-	switch b.visTracerDB {
-	case "sqlite":
-		be := tracing.NewSQLiteTraceWriter(b.visTracerDBFileName)
-		be.Init()
-		backend = be
-	case "csv":
-		be := tracing.NewCSVTraceWriter(b.visTracerDBFileName)
-		be.Init()
-		backend = be
-	case "mysql":
-		be := tracing.NewMySQLTraceWriter()
-		be.Init()
-		backend = be
-	default:
-		panic(fmt.Sprintf(
-			"Tracer database type must be [sqlite|csv|mysql]. "+
-				"Provided value %s is not supported.",
-			b.visTracerDB))
-	}
-
-	visTracer := tracing.NewDBTracer(b.engine, backend)
+	dataRecorder := datarecording.NewDataRecorder("simulation.sqlite3")
+	visTracer := tracing.NewDBTracer(b.engine, dataRecorder)
 	visTracer.SetTimeRange(b.visTraceStartTime, b.visTraceEndTime)
 
 	b.visTracer = visTracer
@@ -166,8 +149,8 @@ func (b *R9NanoPlatformBuilder) createGPUs(
 	connector *mesh.Connector,
 	gpuBuilder gpuArch.R9NanoGPUBuilder,
 	gpuDriver *driver.Driver,
-	rdmaAddressTable *mem.BankedLowModuleFinder,
-	pmcAddressTable *mem.BankedLowModuleFinder,
+	rdmaAddressTable *mem.BankedAddressPortMapper,
+	pmcAddressTable *mem.BankedAddressPortMapper,
 ) {
 	for y := 0; y < b.tileHeight; y++ {
 		for x := 0; x < b.tileWidth; x++ {
@@ -180,24 +163,24 @@ func (b *R9NanoPlatformBuilder) createGPUs(
 	}
 }
 
-func (b R9NanoPlatformBuilder) createPMCPageTable() *mem.BankedLowModuleFinder {
-	pmcAddressTable := new(mem.BankedLowModuleFinder)
+func (b R9NanoPlatformBuilder) createPMCPageTable() *mem.BankedAddressPortMapper {
+	pmcAddressTable := new(mem.BankedAddressPortMapper)
 	pmcAddressTable.BankSize = 8 * mem.GB
-	pmcAddressTable.LowModules = append(pmcAddressTable.LowModules, nil)
+	pmcAddressTable.LowModules = append(pmcAddressTable.LowModules, "")
 	return pmcAddressTable
 }
 
-func (b R9NanoPlatformBuilder) createRDMAAddrTable() *mem.BankedLowModuleFinder {
-	rdmaAddressTable := new(mem.BankedLowModuleFinder)
+func (b R9NanoPlatformBuilder) createRDMAAddrTable() *mem.BankedAddressPortMapper {
+	rdmaAddressTable := new(mem.BankedAddressPortMapper)
 	rdmaAddressTable.BankSize = 8 * mem.GB
-	rdmaAddressTable.LowModules = append(rdmaAddressTable.LowModules, nil)
+	rdmaAddressTable.LowModules = append(rdmaAddressTable.LowModules, "")
 	return rdmaAddressTable
 }
 
 func (b R9NanoPlatformBuilder) createConnection(
 	engine sim.Engine,
 	gpuDriver *driver.Driver,
-	mmuComponent *mmu.MMU,
+	mmuComponent *mmu.Comp,
 ) *mesh.Connector {
 	connector := mesh.NewConnector().
 		WithEngine(engine).
@@ -236,7 +219,7 @@ func (b R9NanoPlatformBuilder) createEngine() sim.Engine {
 
 func (b R9NanoPlatformBuilder) createMMU(
 	engine sim.Engine,
-) (*mmu.MMU, vm.PageTable) {
+) (*mmu.Comp, vm.PageTable) {
 	pageTable := vm.NewPageTable(b.log2PageSize)
 	mmuBuilder := mmu.MakeBuilder().
 		WithEngine(engine).
@@ -266,7 +249,7 @@ func (b R9NanoPlatformBuilder) createMMU(
 func (b *R9NanoPlatformBuilder) createGPUBuilder(
 	engine sim.Engine,
 	gpuDriver *driver.Driver,
-	mmuComponent *mmu.MMU,
+	mmuComponent *mmu.Comp,
 	numMemoryBank int,
 	pageTable vm.PageTable,
 ) gpuArch.R9NanoGPUBuilder {
@@ -337,8 +320,8 @@ func (b *R9NanoPlatformBuilder) createGPU(
 	x, y int,
 	gpuBuilder gpuArch.R9NanoGPUBuilder,
 	gpuDriver *driver.Driver,
-	rdmaAddressTable *mem.BankedLowModuleFinder,
-	pmcAddressTable *mem.BankedLowModuleFinder,
+	rdmaAddressTable *mem.BankedAddressPortMapper,
+	pmcAddressTable *mem.BankedAddressPortMapper,
 	connector *mesh.Connector,
 ) *gpuArch.GPU {
 	index := uint64(len(b.gpus)) + 1
@@ -368,24 +351,24 @@ func (b *R9NanoPlatformBuilder) createGPU(
 
 func (b *R9NanoPlatformBuilder) configRDMAEngine(
 	gpu *gpuArch.GPU,
-	addrTable *mem.BankedLowModuleFinder,
+	addrTable *mem.BankedAddressPortMapper,
 ) {
 	gpu.RDMAEngine.RemoteRDMAAddressTable = addrTable
 
 	addrTable.LowModules = append(
 		addrTable.LowModules,
-		gpu.RDMAEngine.ToOutside)
+		gpu.RDMAEngine.ToOutside.AsRemote())
 }
 
 func (b *R9NanoPlatformBuilder) configPMC(
 	gpu *gpuArch.GPU,
 	gpuDriver *driver.Driver,
-	addrTable *mem.BankedLowModuleFinder,
+	addrTable *mem.BankedAddressPortMapper,
 ) {
 	gpu.PMC.RemotePMCAddressTable = addrTable
 	addrTable.LowModules = append(
 		addrTable.LowModules,
-		gpu.PMC.GetPortByName("Remote"))
+		gpu.PMC.GetPortByName("Remote").AsRemote())
 	gpuDriver.RemotePMCPorts = append(
 		gpuDriver.RemotePMCPorts, gpu.PMC.GetPortByName("Remote"))
 }

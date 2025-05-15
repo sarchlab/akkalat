@@ -3,16 +3,16 @@ package gpuArch
 import (
 	"fmt"
 
-	"github.com/sarchlab/akita/v3/mem/cache/writeback"
-	"github.com/sarchlab/akita/v3/mem/dram"
-	"github.com/sarchlab/akita/v3/mem/mem"
-	"github.com/sarchlab/akita/v3/mem/vm/gmmu"
-	"github.com/sarchlab/akita/v3/mem/vm/tlb"
-	"github.com/sarchlab/akita/v3/sim"
-	"github.com/sarchlab/akita/v3/tracing"
-	"github.com/sarchlab/mgpusim/v3/timing/cp"
-	"github.com/sarchlab/mgpusim/v3/timing/pagemigrationcontroller"
-	"github.com/sarchlab/mgpusim/v3/timing/rdma"
+	"github.com/sarchlab/akita/v4/mem/cache/writeback"
+	"github.com/sarchlab/akita/v4/mem/dram"
+	"github.com/sarchlab/akita/v4/mem/mem"
+	"github.com/sarchlab/akita/v4/mem/vm/gmmu"
+	"github.com/sarchlab/akita/v4/mem/vm/tlb"
+	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/mgpusim/v4/amd/timing/cp"
+	"github.com/sarchlab/mgpusim/v4/amd/timing/pagemigrationcontroller"
+	"github.com/sarchlab/mgpusim/v4/amd/timing/rdma"
 )
 
 func (b *R9NanoGPUBuilder) buildSAs() {
@@ -90,7 +90,7 @@ func (b *R9NanoGPUBuilder) buildGMMUCache() {
 		WithNumMSHREntry(32).
 		WithNumReqPerCycle(32).
 		WithPageSize(1 << b.log2PageSize).
-		WithLowModule(b.gmmu.GetPortByName("Top"))
+		WithLowModule(b.gmmu.GetPortByName("Top").AsRemote())
 
 	gmmuCache := builder.Build(fmt.Sprintf("%s.GMMUCache", b.gpuName))
 	b.gmmuCache = gmmuCache
@@ -120,7 +120,6 @@ func (b *R9NanoGPUBuilder) buildGMMU() {
 		WithPageTable(b.pageTable).
 		WithPageWalkingLatency(100).
 		WithLowModule(b.mmu.GetPortByName("Top")).
-		WithIsPrediction(true).
 		Build(fmt.Sprintf("%s.GMMU", b.gpuName))
 
 	b.gmmu = gmmu
@@ -273,7 +272,7 @@ func (b *R9NanoGPUBuilder) buildL2TLB() {
 		WithNumMSHREntry(64).
 		WithNumReqPerCycle(32).
 		WithPageSize(1 << b.log2PageSize).
-		WithLowModule(b.gmmuCache.GetPortByName("Top"))
+		WithLowModule(b.gmmuCache.GetPortByName("Top").AsRemote())
 
 	l2TLB := builder.Build(fmt.Sprintf("%s.L2TLB", b.gpuName))
 	b.l2TLBs = append(b.l2TLBs, l2TLB)

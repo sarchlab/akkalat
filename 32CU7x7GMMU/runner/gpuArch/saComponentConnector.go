@@ -3,8 +3,9 @@ package gpuArch
 import (
 	"fmt"
 
-	"github.com/sarchlab/akita/v3/mem/mem"
-	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/akita/v4/mem/mem"
+	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v4/sim/directconnection"
 )
 
 func (b *shaderArrayBuilder) connectVectorMem(sa *shaderArray) {
@@ -15,27 +16,27 @@ func (b *shaderArrayBuilder) connectVectorMem(sa *shaderArray) {
 		l1v := sa.l1vCaches[i]
 		tlb := sa.l1vTLBs[i]
 
-		cu.VectorMemModules = &mem.SingleLowModuleFinder{
-			LowModule: rob.GetPortByName("Top"),
+		cu.VectorMemModules = &mem.SinglePortMapper{
+			Port: rob.GetPortByName("Top").AsRemote(),
 		}
 		b.connectWithDirectConnection(cu.ToVectorMem,
-			rob.GetPortByName("Top"), 8)
+			rob.GetPortByName("Top"))
 
 		atTopPort := at.GetPortByName("Top")
 		rob.BottomUnit = atTopPort
 		b.connectWithDirectConnection(
-			rob.GetPortByName("Bottom"), atTopPort, 8)
+			rob.GetPortByName("Bottom"), atTopPort)
 
 		tlbTopPort := tlb.GetPortByName("Top")
-		at.SetTranslationProvider(tlbTopPort)
+		at.SetTranslationProvider(tlbTopPort.AsRemote())
 		b.connectWithDirectConnection(
-			at.GetPortByName("Translation"), tlbTopPort, 8)
+			at.GetPortByName("Translation"), tlbTopPort)
 
-		at.SetLowModuleFinder(&mem.SingleLowModuleFinder{
-			LowModule: l1v.GetPortByName("Top"),
+		at.SetAddressToPortMapper(&mem.SinglePortMapper{
+			Port: l1v.GetPortByName("Top").AsRemote(),
 		})
 		b.connectWithDirectConnection(l1v.GetPortByName("Top"),
-			at.GetPortByName("Bottom"), 8)
+			at.GetPortByName("Bottom"))
 	}
 }
 
@@ -47,25 +48,28 @@ func (b *shaderArrayBuilder) connectScalarMem(sa *shaderArray) {
 
 	atTopPort := at.GetPortByName("Top")
 	rob.BottomUnit = atTopPort
-	b.connectWithDirectConnection(rob.GetPortByName("Bottom"), atTopPort, 8)
+	b.connectWithDirectConnection(rob.GetPortByName("Bottom"), atTopPort)
 
 	tlbTopPort := tlb.GetPortByName("Top")
-	at.SetTranslationProvider(tlbTopPort)
+	at.SetTranslationProvider(tlbTopPort.AsRemote())
 	b.connectWithDirectConnection(
-		at.GetPortByName("Translation"), tlbTopPort, 8)
+		at.GetPortByName("Translation"), tlbTopPort)
 
-	at.SetLowModuleFinder(&mem.SingleLowModuleFinder{
-		LowModule: l1s.GetPortByName("Top"),
+	at.SetAddressToPortMapper(&mem.SinglePortMapper{
+		Port: l1s.GetPortByName("Top").AsRemote(),
 	})
 	b.connectWithDirectConnection(
-		l1s.GetPortByName("Top"), at.GetPortByName("Bottom"), 8)
+		l1s.GetPortByName("Top"), at.GetPortByName("Bottom"))
 
-	conn := sim.NewDirectConnection(b.name, b.engine, b.freq)
-	conn.PlugIn(rob.GetPortByName("Top"), 8)
+	conn := directconnection.MakeBuilder().
+		WithEngine(b.engine).
+		WithFreq(b.freq).
+		Build(b.name)
+	conn.PlugIn(rob.GetPortByName("Top"))
 	for i := 0; i < b.numCU; i++ {
 		cu := sa.cus[i]
 		cu.ScalarMem = rob.GetPortByName("Top")
-		conn.PlugIn(cu.ToScalarMem, 8)
+		conn.PlugIn(cu.ToScalarMem)
 	}
 }
 
@@ -77,38 +81,40 @@ func (b *shaderArrayBuilder) connectInstMem(sa *shaderArray) {
 
 	l1iTopPort := l1i.GetPortByName("Top")
 	rob.BottomUnit = l1iTopPort
-	b.connectWithDirectConnection(rob.GetPortByName("Bottom"), l1iTopPort, 8)
+	b.connectWithDirectConnection(rob.GetPortByName("Bottom"), l1iTopPort)
 
 	atTopPort := at.GetPortByName("Top")
-	l1i.SetLowModuleFinder(&mem.SingleLowModuleFinder{
-		LowModule: atTopPort,
+	l1i.SetAddressToPortMapper(&mem.SinglePortMapper{
+		Port: atTopPort.AsRemote(),
 	})
-	b.connectWithDirectConnection(l1i.GetPortByName("Bottom"), atTopPort, 8)
+	b.connectWithDirectConnection(l1i.GetPortByName("Bottom"), atTopPort)
 
 	tlbTopPort := tlb.GetPortByName("Top")
-	at.SetTranslationProvider(tlbTopPort)
+	at.SetTranslationProvider(tlbTopPort.AsRemote())
 	b.connectWithDirectConnection(
-		at.GetPortByName("Translation"), tlbTopPort, 8)
+		at.GetPortByName("Translation"), tlbTopPort)
 
 	robTopPort := rob.GetPortByName("Top")
-	conn := sim.NewDirectConnection(b.name, b.engine, b.freq)
-	conn.PlugIn(robTopPort, 8)
+	conn := directconnection.MakeBuilder().
+		WithEngine(b.engine).
+		WithFreq(b.freq).
+		Build(b.name)
+	conn.PlugIn(robTopPort)
 	for i := 0; i < b.numCU; i++ {
 		cu := sa.cus[i]
 		cu.InstMem = rob.GetPortByName("Top")
-		conn.PlugIn(cu.ToInstMem, 8)
+		conn.PlugIn(cu.ToInstMem)
 	}
 }
 
 func (b *shaderArrayBuilder) connectWithDirectConnection(
 	port1, port2 sim.Port,
-	bufferSize int,
 ) {
 	name := fmt.Sprintf("%sto%s", port1.Name(), port2.Name())
-	conn := sim.NewDirectConnection(
-		name,
-		b.engine, b.freq,
-	)
-	conn.PlugIn(port1, bufferSize)
-	conn.PlugIn(port2, bufferSize)
+	conn := directconnection.MakeBuilder().
+		WithEngine(b.engine).
+		WithFreq(b.freq).
+		Build(name)
+	conn.PlugIn(port1)
+	conn.PlugIn(port2)
 }

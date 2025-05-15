@@ -1,7 +1,7 @@
 package tracers
 
 import (
-	"github.com/sarchlab/akita/v3/tracing"
+	"github.com/sarchlab/akita/v4/tracing"
 	"github.com/tebeka/atexit"
 )
 
@@ -48,6 +48,10 @@ func (t *InstTracer) StartTask(task tracing.Task) {
 }
 
 func (t *InstTracer) StepTask(task tracing.Task) {
+	// Do nothing
+}
+
+func (t *InstTracer) AddMilestone(milestone tracing.Milestone) {
 	// Do nothing
 }
 

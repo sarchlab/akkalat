@@ -6,7 +6,7 @@ import (
 	"strconv"
 
 	"github.com/sarchlab/akkalat/32CU7x7GMMU/runner/gpuArch"
-	"github.com/sarchlab/mgpusim/v3/timing/cu"
+	"github.com/sarchlab/mgpusim/v4/amd/timing/cu"
 )
 
 func (r *Runner) reportStats() {

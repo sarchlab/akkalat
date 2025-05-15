@@ -5,14 +5,14 @@ import (
 	"log"
 	"os"
 
-	"github.com/sarchlab/akita/v3/mem/cache/writearound"
-	"github.com/sarchlab/akita/v3/mem/cache/writethrough"
-	"github.com/sarchlab/akita/v3/mem/mem"
-	"github.com/sarchlab/akita/v3/mem/vm/addresstranslator"
-	"github.com/sarchlab/akita/v3/mem/vm/tlb"
-	"github.com/sarchlab/akita/v3/tracing"
-	"github.com/sarchlab/mgpusim/v3/timing/cu"
-	"github.com/sarchlab/mgpusim/v3/timing/rob"
+	"github.com/sarchlab/akita/v4/mem/cache/writearound"
+	"github.com/sarchlab/akita/v4/mem/cache/writethrough"
+	"github.com/sarchlab/akita/v4/mem/mem"
+	"github.com/sarchlab/akita/v4/mem/vm/addresstranslator"
+	"github.com/sarchlab/akita/v4/mem/vm/tlb"
+	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/mgpusim/v4/amd/timing/cu"
+	"github.com/sarchlab/mgpusim/v4/amd/timing/rob"
 )
 
 // CU Builder
@@ -98,7 +98,7 @@ func (b *shaderArrayBuilder) buildL1VAddressTranslators(sa *shaderArray) {
 
 // Cache Builder
 func (b *shaderArrayBuilder) buildL1VCaches(sa *shaderArray) {
-	builder := writearound.NewBuilder().
+	builder := writearound.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
 		WithBankLatency(60).
@@ -124,7 +124,7 @@ func (b *shaderArrayBuilder) buildL1VCaches(sa *shaderArray) {
 }
 
 func (b *shaderArrayBuilder) buildL1SCache(sa *shaderArray) {
-	builder := writethrough.NewBuilder().
+	builder := writethrough.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
 		WithBankLatency(1).
@@ -148,7 +148,7 @@ func (b *shaderArrayBuilder) buildL1SCache(sa *shaderArray) {
 }
 
 func (b *shaderArrayBuilder) buildL1ICache(sa *shaderArray) {
-	builder := writethrough.NewBuilder().
+	builder := writethrough.MakeBuilder().
 		WithEngine(b.engine).
 		WithFreq(b.freq).
 		WithBankLatency(1).

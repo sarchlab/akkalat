@@ -13,14 +13,14 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/sarchlab/akita/v3/monitoring"
-	"github.com/sarchlab/akita/v3/sim"
-	"github.com/sarchlab/akita/v3/tracing"
+	"github.com/sarchlab/akita/v4/monitoring"
+	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v4/tracing"
 	"github.com/sarchlab/akkalat/32CU7x7GMMU/runner/gpuArch"
 	"github.com/sarchlab/akkalat/32CU7x7GMMU/runner/timingPlatform"
 	"github.com/sarchlab/akkalat/32CU7x7GMMU/runner/tracers"
-	"github.com/sarchlab/mgpusim/v3/benchmarks"
-	"github.com/sarchlab/mgpusim/v3/driver"
+	"github.com/sarchlab/mgpusim/v4/amd/benchmarks"
+	"github.com/sarchlab/mgpusim/v4/amd/driver"
 	"github.com/tebeka/atexit"
 )
 
@@ -275,9 +275,6 @@ func (r *Runner) Run() {
 	wg.Wait()
 
 	r.platform.Driver.Terminate()
-	r.platform.Engine.Finished()
-
-	//r.reportStats()
 
 	atexit.Exit(0)
 }

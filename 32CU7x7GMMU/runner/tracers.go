@@ -3,14 +3,14 @@ package runner
 import (
 	"strings"
 
-	"github.com/sarchlab/akita/v3/mem/vm/gmmu"
-	"github.com/sarchlab/akita/v3/mem/vm/mmu"
-	"github.com/sarchlab/akita/v3/sim"
-	"github.com/sarchlab/akita/v3/tracing"
+	"github.com/sarchlab/akita/v4/mem/vm/gmmu"
+	"github.com/sarchlab/akita/v4/mem/vm/mmu"
+	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v4/tracing"
 	"github.com/sarchlab/akkalat/32CU7x7GMMU/runner/gpuArch"
 	"github.com/sarchlab/akkalat/32CU7x7GMMU/runner/tracers"
-	"github.com/sarchlab/mgpusim/v3/timing/cu"
-	"github.com/sarchlab/mgpusim/v3/timing/rdma"
+	"github.com/sarchlab/mgpusim/v4/amd/timing/cu"
+	"github.com/sarchlab/mgpusim/v4/amd/timing/rdma"
 	"github.com/tebeka/atexit"
 )
 
@@ -63,7 +63,7 @@ type rdmaTransactionCountTracer struct {
 type gmmuTransactionCountTracer struct {
 	outgoingTracer *tracing.AverageTimeTracer
 	incomingTracer *tracing.AverageTimeTracer
-	gmmuEngine     *gmmu.GMMU
+	gmmuEngine     *gmmu.Comp
 }
 
 //	type gmmuTransactionCountTracer struct {
@@ -73,7 +73,7 @@ type gmmuTransactionCountTracer struct {
 type mmuTransactionCountTracer struct {
 	outgoingTracer *tracing.AverageTimeTracer
 	incomingTracer *tracing.AverageTimeTracer
-	mmuEngine      *mmu.MMU
+	mmuEngine      *mmu.Comp
 }
 
 type gmmuCacheHitRateTracer struct {
@@ -435,7 +435,7 @@ func (r *Runner) addRDMAEngineTracer() {
 				}
 
 				isFromOutside := strings.Contains(
-					task.Detail.(sim.Msg).Meta().Src.Name(), "RDMA")
+					string(task.Detail.(sim.Msg).Meta().Src), "RDMA")
 				if !isFromOutside {
 					return false
 				}
@@ -450,7 +450,7 @@ func (r *Runner) addRDMAEngineTracer() {
 				}
 
 				isFromOutside := strings.Contains(
-					task.Detail.(sim.Msg).Meta().Src.Name(), "RDMA")
+					string(task.Detail.(sim.Msg).Meta().Src), "RDMA")
 				if isFromOutside {
 					return false
 				}
@@ -482,7 +482,7 @@ func (r *Runner) addMMUEngineTracer() {
 				}
 
 				isFromOutside := strings.Contains(
-					task.Detail.(sim.Msg).Meta().Dst.Name(), "MMU")
+					string(task.Detail.(sim.Msg).Meta().Dst), "MMU")
 				if !isFromOutside {
 					return false
 				}
@@ -497,7 +497,7 @@ func (r *Runner) addMMUEngineTracer() {
 				}
 
 				isFromOutside := strings.Contains(
-					task.Detail.(sim.Msg).Meta().Src.Name(), "MMU")
+					string(task.Detail.(sim.Msg).Meta().Src), "MMU")
 				if isFromOutside {
 					return false
 				}
@@ -529,7 +529,7 @@ func (r *Runner) addGMMUEngineTracer() {
 				}
 
 				isFromOutside := strings.Contains(
-					task.Detail.(sim.Msg).Meta().Dst.Name(), "GMMU")
+					string(task.Detail.(sim.Msg).Meta().Dst), "GMMU")
 				if !isFromOutside {
 					return false
 				}
@@ -544,7 +544,7 @@ func (r *Runner) addGMMUEngineTracer() {
 				}
 
 				isFromOutside := strings.Contains(
-					task.Detail.(sim.Msg).Meta().Src.Name(), "GMMU")
+					string(task.Detail.(sim.Msg).Meta().Src), "GMMU")
 				if isFromOutside {
 					return false
 				}

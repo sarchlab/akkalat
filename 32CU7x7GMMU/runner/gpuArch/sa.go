@@ -1,14 +1,14 @@
 package gpuArch
 
 import (
-	"github.com/sarchlab/akita/v3/mem/cache/writearound"
-	"github.com/sarchlab/akita/v3/mem/cache/writethrough"
-	"github.com/sarchlab/akita/v3/mem/vm/addresstranslator"
-	"github.com/sarchlab/akita/v3/mem/vm/tlb"
-	"github.com/sarchlab/akita/v3/sim"
-	"github.com/sarchlab/akita/v3/tracing"
-	"github.com/sarchlab/mgpusim/v3/timing/cu"
-	"github.com/sarchlab/mgpusim/v3/timing/rob"
+	"github.com/sarchlab/akita/v4/mem/cache/writearound"
+	"github.com/sarchlab/akita/v4/mem/cache/writethrough"
+	"github.com/sarchlab/akita/v4/mem/vm/addresstranslator"
+	"github.com/sarchlab/akita/v4/mem/vm/tlb"
+	"github.com/sarchlab/akita/v4/sim"
+	"github.com/sarchlab/akita/v4/tracing"
+	"github.com/sarchlab/mgpusim/v4/amd/timing/cu"
+	"github.com/sarchlab/mgpusim/v4/amd/timing/rob"
 )
 
 type shaderArray struct {
@@ -18,17 +18,17 @@ type shaderArray struct {
 	l1sROB  *rob.ReorderBuffer
 	l1iROB  *rob.ReorderBuffer
 
-	l1vATs []*addresstranslator.AddressTranslator
-	l1sAT  *addresstranslator.AddressTranslator
-	l1iAT  *addresstranslator.AddressTranslator
+	l1vATs []*addresstranslator.Comp
+	l1sAT  *addresstranslator.Comp
+	l1iAT  *addresstranslator.Comp
 
-	l1vCaches []*writearound.Cache
-	l1sCache  *writethrough.Cache
-	l1iCache  *writethrough.Cache
+	l1vCaches []*writearound.Comp
+	l1sCache  *writethrough.Comp
+	l1iCache  *writethrough.Comp
 
-	l1vTLBs []*tlb.TLB
-	l1sTLB  *tlb.TLB
-	l1iTLB  *tlb.TLB
+	l1vTLBs []*tlb.Comp
+	l1sTLB  *tlb.Comp
+	l1iTLB  *tlb.Comp
 }
 
 type shaderArrayBuilder struct {

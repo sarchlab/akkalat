@@ -1,8 +1,8 @@
 package timingPlatform
 
 import (
-	"github.com/sarchlab/akita/v3/monitoring"
-	"github.com/sarchlab/akita/v3/sim"
+	"github.com/sarchlab/akita/v4/monitoring"
+	"github.com/sarchlab/akita/v4/sim"
 )
 
 // WithParallelEngine lets the EmuBuilder to use parallel engine.
