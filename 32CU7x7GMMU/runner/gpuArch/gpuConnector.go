@@ -24,7 +24,6 @@ func (b *R9NanoGPUBuilder) connectCP() {
 		WithFreq(b.freq).
 		Build(b.gpuName + ".InternalConn")
 
-	b.internalConn.PlugIn(b.cp.ToDriver)
 	b.internalConn.PlugIn(b.cp.ToDMA)
 	b.internalConn.PlugIn(b.cp.ToCaches)
 	b.internalConn.PlugIn(b.cp.ToCUs)
