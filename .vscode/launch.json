@@ -13,11 +13,11 @@
 			"justMyCode": true
 		},
 		{
-			"name": "FIR-32CUPerGPU_withCache",
+			"name": "FIR-32CU7x7GMMU",
 			"type": "go",
 			"request": "launch",
 			"mode": "auto",
-			"program": "${workspaceFolder}/32CUPerGPU_withCache",
+			"program": "${workspaceFolder}/32CU7x7GMMU",
 			"args": [
 				"-timing",
 				"-magic-memory-copy",
